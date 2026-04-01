@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGERP — Gestión de Usuarios</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+
+<div class="app-layout">
+  <nav class="sidebar" id="sidebar"></nav>
+
+  <div class="app-main">
+    <header class="topbar">
+      <div class="topbar-title">Gestión de usuarios</div>
+      <div class="topbar-actions">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="buscador" placeholder="Buscar por nombre o matrícula…"
+                 oninput="filtrarTabla()" />
+        </div>
+        <select class="filter-select" id="filtro-rol" onchange="cargarUsuarios()">
+          <option value="">Todos los roles</option>
+          <option value="alumno">Alumnos</option>
+          <option value="asesor">Asesores</option>
+          <option value="admin">Administradores</option>
+        </select>
+      </div>
+    </header>
+
+    <main class="app-content">
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="card-title">Usuarios</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="tab-pills">
+              <button class="tab-pill active" onclick="setRol('', this)">Todos</button>
+              <button class="tab-pill" onclick="setRol('alumno', this)">Alumnos</button>
+              <button class="tab-pill" onclick="setRol('asesor', this)">Asesores</button>
+              <button class="tab-pill" onclick="setRol('admin', this)">Admins</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>ID / Matrícula</th>
+                <th>Correo</th>
+                <th>Rol</th>
+                <th>Registro</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-usuarios">
+              <tr class="loading-row">
+                <td colspan="6"><div class="spinner"></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Modal: Editar usuario -->
+<div class="modal-overlay" id="modal-editar">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Editar usuario</span>
+      <button class="modal-close" onclick="closeModal('modal-editar')">×</button>
+    </div>
+    <div class="modal-body">
+      <form id="form-editar" onsubmit="guardarEdicion(event)">
+        <input type="hidden" id="edit-id" />
+        <div class="form-grid">
+          <div class="form-group full">
+            <label class="form-label">Nombre completo <span class="req">*</span></label>
+            <input class="form-control" id="edit-nombre" required />
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Correo institucional <span class="req">*</span></label>
+            <input class="form-control" id="edit-correo" type="email" required />
+          </div>
+        </div>
+        <div class="form-footer">
+          <button type="button" class="btn btn-secondary"
+                  onclick="closeModal('modal-editar')">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-guardar">
+            💾 Guardar cambios
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Confirmar baja -->
+<div class="modal-overlay" id="modal-baja">
+  <div class="modal" style="width:400px">
+    <div class="modal-header">
+      <span class="modal-title">Confirmar baja</span>
+      <button class="modal-close" onclick="closeModal('modal-baja')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-danger">
+        ⚠️ ¿Seguro que deseas dar de baja a
+        <strong id="baja-nombre"></strong>?
+        Esta acción desactiva su acceso al sistema.
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-baja')">Cancelar</button>
+        <button class="btn btn-danger" id="btn-confirmar-baja"
+                onclick="confirmarBaja()">Dar de baja</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api/client.js"></script>
+<script src="../js/components/sidebar.js"></script>
+<script>
+  checkAuth(['admin']);
+  renderSidebar('usuarios.html');
+
+  let _todos    = [];   // cache completo
+  let _rolActual = '';
+  let _bajaId   = null;
+
+  // ── Cargar usuarios ──────────────────────────────────────────
+  async function cargarUsuarios() {
+    tablaLoading('tbody-usuarios', 6);
+    try {
+      _todos = await usuariosApi.listar(_rolActual);
+      const txt = _rolActual
+        ? `${_rolActual.charAt(0).toUpperCase() + _rolActual.slice(1)}s`
+        : 'Todos los usuarios';
+      document.getElementById('card-title').textContent =
+        `${txt} (${_todos.length})`;
+      renderTabla(_todos);
+    } catch (err) {
+      tablaEmpty('tbody-usuarios', `Error: ${err.message}`, 6);
+      toast(err.message, 'error');
+    }
+  }
+
+  function renderTabla(lista) {
+    const tbody = document.getElementById('tbody-usuarios');
+    if (!lista.length) {
+      return tablaEmpty('tbody-usuarios', 'No se encontraron usuarios.', 6);
+    }
+    tbody.innerHTML = lista.map(u => `
+      <tr>
+        <td>
+          <div class="avatar-row">
+            <div class="avatar">${iniciales(u.nombre)}</div>
+            <div>
+              <div class="td-name">${u.nombre}</div>
+              ${u.carrera ? `<div class="td-sub">${u.carrera}</div>` : ''}
+              ${u.area    ? `<div class="td-sub">${u.area}</div>` : ''}
+            </div>
+          </div>
+        </td>
+        <td class="text-muted text-sm">${u.matricula || `ID-${u.id_usuario}`}</td>
+        <td class="text-sm">${u.correo}</td>
+        <td>${badgeEstado(u.rol)}</td>
+        <td class="text-muted text-sm">${fmtFecha(u.fecha_registro)}</td>
+        <td>
+          <div class="td-actions">
+            <button class="btn btn-sm btn-secondary"
+              onclick="abrirEditar(${u.id_usuario}, '${u.nombre.replace(/'/g,"\\'") }', '${u.correo}')">
+              Editar
+            </button>
+            <button class="btn btn-sm btn-danger"
+              onclick="abrirBaja(${u.id_usuario}, '${u.nombre.replace(/'/g,"\\'")}')">
+              Baja
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // ── Filtro local por búsqueda ────────────────────────────────
+  function filtrarTabla() {
+    const q = document.getElementById('buscador').value.toLowerCase();
+    const filtrados = _todos.filter(u =>
+      u.nombre.toLowerCase().includes(q) ||
+      (u.correo  || '').toLowerCase().includes(q) ||
+      (u.matricula || '').toLowerCase().includes(q)
+    );
+    renderTabla(filtrados);
+  }
+
+  // ── Cambiar rol desde tabs ───────────────────────────────────
+  function setRol(rol, btn) {
+    _rolActual = rol;
+    document.querySelectorAll('.tab-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    cargarUsuarios();
+  }
+
+  // ── Editar ───────────────────────────────────────────────────
+  function abrirEditar(id, nombre, correo) {
+    document.getElementById('edit-id').value     = id;
+    document.getElementById('edit-nombre').value = nombre;
+    document.getElementById('edit-correo').value = correo;
+    openModal('modal-editar');
+  }
+
+  async function guardarEdicion(e) {
+    e.preventDefault();
+    const id     = parseInt(document.getElementById('edit-id').value);
+    const nombre = document.getElementById('edit-nombre').value.trim();
+    const correo = document.getElementById('edit-correo').value.trim();
+    const btn    = document.getElementById('btn-guardar');
+
+    btn.disabled = true;
+    btn.textContent = 'Guardando…';
+    try {
+      await usuariosApi.actualizar(id, { nombre, correo });
+      toast('Usuario actualizado correctamente.');
+      closeModal('modal-editar');
+      cargarUsuarios();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '💾 Guardar cambios';
+    }
+  }
+
+  // ── Baja ─────────────────────────────────────────────────────
+  function abrirBaja(id, nombre) {
+    _bajaId = id;
+    document.getElementById('baja-nombre').textContent = nombre;
+    openModal('modal-baja');
+  }
+
+  async function confirmarBaja() {
+    const btn = document.getElementById('btn-confirmar-baja');
+    btn.disabled = true;
+    btn.textContent = '…';
+    try {
+      await usuariosApi.baja(_bajaId);
+      toast('Usuario dado de baja.');
+      closeModal('modal-baja');
+      cargarUsuarios();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Dar de baja';
+    }
+  }
+
+  // ── Cerrar modal al clic fuera ───────────────────────────────
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) overlay.classList.remove('open');
+    });
+  });
+
+  cargarUsuarios();
+</script>
+</body>
+</html>

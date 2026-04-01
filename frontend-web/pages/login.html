@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGERP — Iniciar sesión</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <style>
+    body {
+      background: linear-gradient(155deg, var(--navy) 0%, var(--teal) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .login-card {
+      background: white;
+      border-radius: 16px;
+      width: 380px;
+      padding: 40px 36px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.28);
+    }
+    .login-logo {
+      background: var(--accent);
+      color: var(--navy);
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 11px;
+      letter-spacing: 1.2px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+    .login-h {
+      font-family: 'Syne', sans-serif;
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--navy);
+      margin-bottom: 4px;
+    }
+    .login-sub {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+    .login-field { margin-bottom: 16px; }
+    .login-field label {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+    .login-field input {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 13px;
+      font-size: 13px;
+      color: var(--text);
+      transition: border-color .2s;
+    }
+    .login-field input:focus { border-color: var(--teal-l); outline: none; }
+    .login-btn {
+      width: 100%;
+      background: var(--teal);
+      color: white;
+      border: none;
+      border-radius: 9px;
+      padding: 12px;
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 6px;
+      transition: background .18s;
+    }
+    .login-btn:hover { background: var(--teal-l); }
+    .login-btn:disabled { opacity: .6; cursor: not-allowed; }
+    .login-error {
+      display: none;
+      background: rgba(232,72,85,.08);
+      border: 1px solid rgba(232,72,85,.25);
+      border-radius: 7px;
+      padding: 10px 13px;
+      font-size: 13px;
+      color: var(--danger);
+      margin-bottom: 14px;
+    }
+    .login-footer {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-card">
+  <div class="login-logo">SIGERP</div>
+  <div class="login-h">Iniciar sesión</div>
+  <p class="login-sub">
+    Sistema de Gestión de Residencias Profesionales<br>
+    Instituto Tecnológico de León
+  </p>
+
+  <div id="login-error" class="login-error"></div>
+
+  <form id="login-form" onsubmit="handleLogin(event)">
+    <div class="login-field">
+      <label>Correo institucional</label>
+      <input type="email" id="correo" placeholder="usuario@itl.edu.mx"
+             autocomplete="username" required />
+    </div>
+    <div class="login-field">
+      <label>Contraseña</label>
+      <input type="password" id="contrasena" placeholder="••••••••"
+             autocomplete="current-password" required />
+    </div>
+    <button type="submit" class="login-btn" id="login-btn">
+      Entrar al sistema
+    </button>
+  </form>
+
+  <p class="login-footer">
+    ¿Problemas de acceso? Contacta al administrador.
+  </p>
+</div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api/client.js"></script>
+<script>
+  // Si ya hay sesión activa, redirigir directo
+  (function() {
+    const u = getUsuario();
+    const t = getToken();
+    if (u && t) redirigirPorRol(u.rol);
+  })();
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    const correo    = document.getElementById('correo').value.trim();
+    const contrasena = document.getElementById('contrasena').value;
+    const btn       = document.getElementById('login-btn');
+    const errEl     = document.getElementById('login-error');
+
+    errEl.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Verificando…';
+
+    try {
+      const data = await usuariosApi.login(correo, contrasena);
+      guardarSesion(data.token, data.usuario);
+      redirigirPorRol(data.usuario.rol);
+    } catch (err) {
+      errEl.textContent = err.message || 'Credenciales incorrectas.';
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Entrar al sistema';
+    }
+  }
+</script>
+</body>
+</html>

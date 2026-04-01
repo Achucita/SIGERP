@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGERP — Dashboard Administrador</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+
+<div class="app-layout">
+  <!-- Sidebar -->
+  <nav class="sidebar" id="sidebar"></nav>
+
+  <!-- Main -->
+  <div class="app-main">
+    <header class="topbar">
+      <div class="topbar-title">Dashboard</div>
+      <div class="topbar-actions">
+        <a href="proyectos.html" class="btn btn-primary">+ Publicar proyecto</a>
+      </div>
+    </header>
+
+    <main class="app-content">
+
+      <!-- Stats -->
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card c-teal">
+          <div class="stat-icon">👤</div>
+          <div class="stat-label">Alumnos activos</div>
+          <div class="stat-value" id="stat-alumnos">—</div>
+          <div class="stat-sub" id="stat-alumnos-sub"></div>
+        </div>
+        <div class="stat-card c-accent">
+          <div class="stat-icon">📁</div>
+          <div class="stat-label">Proyectos publicados</div>
+          <div class="stat-value" id="stat-proyectos">—</div>
+          <div class="stat-sub" id="stat-proyectos-sub"></div>
+        </div>
+        <div class="stat-card c-warn">
+          <div class="stat-icon">📋</div>
+          <div class="stat-label">Postulaciones</div>
+          <div class="stat-value" id="stat-postulaciones">—</div>
+          <div class="stat-sub" id="stat-post-sub"></div>
+        </div>
+        <div class="stat-card c-danger">
+          <div class="stat-icon">📝</div>
+          <div class="stat-label">Anteproyectos pendientes</div>
+          <div class="stat-value" id="stat-antep">—</div>
+          <div class="stat-sub">Por revisar</div>
+        </div>
+      </div>
+
+      <!-- Banner anteproyectos pendientes -->
+      <div id="banner-antep" class="warn-banner" style="display:none">
+        ⚠️ Tienes <strong id="banner-antep-n">0</strong> anteproyecto(s) pendiente(s) de revisión.
+        <a href="anteproyectos.html" class="btn btn-sm btn-secondary" style="margin-left:auto">Revisar ahora</a>
+      </div>
+
+      <div class="two-col">
+
+        <!-- Postulaciones recientes -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Postulaciones recientes</span>
+            <a href="postulaciones.html" class="btn btn-sm btn-secondary">Ver todas</a>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Alumno</th>
+                  <th>Proyecto</th>
+                  <th>Estado</th>
+                  <th>Fecha</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-postulaciones">
+                <tr class="loading-row"><td colspan="4"><div class="spinner"></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Proyectos por aprobar -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Proyectos en revisión</span>
+            <a href="proyectos.html" class="btn btn-sm btn-secondary">Ver todos</a>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Proyecto</th>
+                  <th>Empresa</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-revision">
+                <tr class="loading-row"><td colspan="3"><div class="spinner"></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Todos los proyectos activos -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Proyectos activos</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Proyecto</th>
+                <th>Empresa</th>
+                <th>Asesor</th>
+                <th>Postulantes</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-proyectos-activos">
+              <tr class="loading-row"><td colspan="5"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api/client.js"></script>
+<script src="../js/components/sidebar.js"></script>
+<script>
+  // ── Verificar sesión ─────────────────────────────────────────
+  const usuario = checkAuth(['admin']);
+  renderSidebar('dashboard-admin.html');
+
+  // ── Cargar datos ─────────────────────────────────────────────
+  async function cargarDashboard() {
+    await Promise.all([
+      cargarPostulaciones(),
+      cargarProyectos(),
+      cargarStats(),
+    ]);
+  }
+
+  async function cargarStats() {
+    try {
+      const [usuarios, proyectos, postulaciones, antep] = await Promise.all([
+        usuariosApi.listar('alumno'),
+        proyectosApi.listar(),
+        postulacionesApi.porProyecto ? [] : [],  // simplificado
+        anteproyectosApi.pendientes(),
+      ]);
+
+      document.getElementById('stat-alumnos').textContent    = usuarios.length;
+      document.getElementById('stat-proyectos').textContent  =
+        proyectos.filter(p => p.estado === 'publicado').length;
+      document.getElementById('stat-proyectos-sub').textContent =
+        `${proyectos.filter(p => p.estado === 'revision').length} en revisión`;
+      document.getElementById('stat-antep').textContent      = antep.length;
+
+      if (antep.length > 0) {
+        document.getElementById('banner-antep').style.display = 'flex';
+        document.getElementById('banner-antep-n').textContent = antep.length;
+      }
+    } catch (err) {
+      console.error('Stats:', err.message);
+    }
+  }
+
+  async function cargarPostulaciones() {
+    const tbody = document.getElementById('tbody-postulaciones');
+    try {
+      // Obtenemos postulaciones de todos los proyectos (simplificado)
+      const proyectos = await proyectosApi.listar({ estado: 'publicado' });
+      let todasPost = [];
+      for (const p of proyectos.slice(0, 4)) {
+        const posts = await postulacionesApi.porProyecto(p.id_proyecto);
+        todasPost = todasPost.concat(posts.map(po => ({ ...po, _proyecto: p.nombre })));
+      }
+      // Mostrar las 6 más recientes
+      const recientes = todasPost.slice(0, 6);
+
+      if (!recientes.length) {
+        return tablaEmpty('tbody-postulaciones', 'Sin postulaciones aún.', 4);
+      }
+
+      tbody.innerHTML = recientes.map(p => `
+        <tr>
+          <td>
+            <div class="avatar-row">
+              <div class="avatar">${iniciales(p.alumno || '?')}</div>
+              <div>
+                <div class="td-name">${p.alumno || '—'}</div>
+                <div class="td-sub">${p.matricula || ''}</div>
+              </div>
+            </div>
+          </td>
+          <td>${p._proyecto}</td>
+          <td>${badgeEstado(p.estado)}</td>
+          <td class="text-muted text-sm">${fmtFecha(p.fecha_postulacion)}</td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      tablaEmpty('tbody-postulaciones', 'Error al cargar.', 4);
+    }
+  }
+
+  async function cargarProyectos() {
+    try {
+      const proyectos = await proyectosApi.listar();
+
+      // Proyectos en revisión
+      const enRevision = proyectos.filter(p => p.estado === 'revision');
+      const tbodyRev   = document.getElementById('tbody-revision');
+      document.getElementById('stat-postulaciones').textContent =
+        proyectos.reduce((a, p) => a + (p.alumnos_aceptados || 0), 0);
+
+      if (!enRevision.length) {
+        tablaEmpty('tbody-revision', 'Sin proyectos en revisión.', 3);
+      } else {
+        tbodyRev.innerHTML = enRevision.map(p => `
+          <tr>
+            <td><div class="td-name">${p.nombre}</div></td>
+            <td class="text-muted text-sm">${p.empresa}</td>
+            <td>
+              <button class="btn btn-sm btn-primary"
+                onclick="publicarProyecto(${p.id_proyecto}, this)">
+                Publicar
+              </button>
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      // Proyectos activos (publicados con asesor)
+      const activos = proyectos.filter(p => p.estado === 'publicado');
+      const tbodyAct = document.getElementById('tbody-proyectos-activos');
+      if (!activos.length) {
+        tablaEmpty('tbody-proyectos-activos', 'Sin proyectos publicados.', 5);
+      } else {
+        tbodyAct.innerHTML = activos.map(p => `
+          <tr>
+            <td><div class="td-name">${p.nombre}</div></td>
+            <td class="text-muted text-sm">${p.empresa}</td>
+            <td>${p.asesor || '<span class="text-muted">Sin asignar</span>'}</td>
+            <td>${p.alumnos_aceptados ?? '—'} / ${p.num_alumnos}</td>
+            <td>${badgeEstado(p.estado)}</td>
+          </tr>
+        `).join('');
+      }
+    } catch (err) {
+      tablaEmpty('tbody-revision', 'Error al cargar.', 3);
+      tablaEmpty('tbody-proyectos-activos', 'Error al cargar.', 5);
+    }
+  }
+
+  async function publicarProyecto(id, btn) {
+    btn.disabled = true;
+    btn.textContent = '…';
+    try {
+      await proyectosApi.cambiarEstado(id, 'publicado');
+      toast('Proyecto publicado correctamente.');
+      cargarDashboard();
+    } catch (err) {
+      toast(err.message, 'error');
+      btn.disabled = false;
+      btn.textContent = 'Publicar';
+    }
+  }
+
+  cargarDashboard();
+</script>
+</body>
+</html>

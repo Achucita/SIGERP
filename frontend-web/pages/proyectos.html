@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGERP — Proyectos</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+
+<div class="app-layout">
+  <nav class="sidebar" id="sidebar"></nav>
+
+  <div class="app-main">
+    <header class="topbar">
+      <div class="topbar-title">Proyectos de Residencia</div>
+      <div class="topbar-actions">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="buscador"
+                 placeholder="Buscar proyecto o empresa…"
+                 oninput="filtrarTabla()" />
+        </div>
+        <select class="filter-select" id="filtro-estado" onchange="cargarProyectos()">
+          <option value="">Todos los estados</option>
+          <option value="revision">En revisión</option>
+          <option value="publicado">Publicados</option>
+          <option value="cerrado">Cerrados</option>
+        </select>
+      </div>
+    </header>
+
+    <main class="app-content">
+
+      <!-- Banner revisión pendiente -->
+      <div id="banner-revision" class="warn-banner" style="display:none">
+        ⚠️ Hay <strong id="n-revision">0</strong> proyecto(s) enviados por empresas pendientes de aprobación.
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="card-title">Proyectos</span>
+          <div class="tab-pills">
+            <button class="tab-pill active" onclick="setEstado('', this)">Todos</button>
+            <button class="tab-pill" onclick="setEstado('revision', this)">En revisión</button>
+            <button class="tab-pill" onclick="setEstado('publicado', this)">Publicados</button>
+            <button class="tab-pill" onclick="setEstado('cerrado', this)">Cerrados</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Proyecto</th>
+                <th>Empresa</th>
+                <th>Área</th>
+                <th>Asesor</th>
+                <th>Cupo</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-proyectos">
+              <tr class="loading-row">
+                <td colspan="7"><div class="spinner"></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Modal: Asignar asesor -->
+<div class="modal-overlay" id="modal-asesor">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Asignar asesor</span>
+      <button class="modal-close" onclick="closeModal('modal-asesor')">×</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-muted text-sm mb-16">
+        Proyecto: <strong id="asesor-proy-nombre"></strong>
+      </p>
+      <div class="alert alert-info">
+        ℹ️ Solo asigna asesor después de aprobar el anteproyecto del alumno.
+      </div>
+      <div class="form-group mt-16">
+        <label class="form-label">Seleccionar asesor <span class="req">*</span></label>
+        <select class="form-control" id="select-asesor" required>
+          <option value="">— Seleccionar —</option>
+        </select>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-asesor')">Cancelar</button>
+        <button class="btn btn-primary" id="btn-asignar" onclick="confirmarAsesor()">
+          ✓ Asignar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Detalle del proyecto -->
+<div class="modal-overlay" id="modal-detalle">
+  <div class="modal" style="width:600px">
+    <div class="modal-header">
+      <span class="modal-title" id="detalle-titulo">Detalle del proyecto</span>
+      <button class="modal-close" onclick="closeModal('modal-detalle')">×</button>
+    </div>
+    <div class="modal-body" id="detalle-body">
+      <div class="spinner"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api/client.js"></script>
+<script src="../js/components/sidebar.js"></script>
+<script>
+  checkAuth(['admin']);
+  renderSidebar('proyectos.html');
+
+  let _todos      = [];
+  let _estadoAct  = '';
+  let _proyId     = null;  // para modal de asesor
+
+  // ── Cargar proyectos ─────────────────────────────────────────
+  async function cargarProyectos() {
+    tablaLoading('tbody-proyectos', 7);
+    try {
+      const params = {};
+      if (_estadoAct) params.estado = _estadoAct;
+      _todos = await proyectosApi.listar(params);
+
+      const enRevision = _todos.filter(p => p.estado === 'revision');
+      if (enRevision.length) {
+        document.getElementById('banner-revision').style.display = 'flex';
+        document.getElementById('n-revision').textContent = enRevision.length;
+      } else {
+        document.getElementById('banner-revision').style.display = 'none';
+      }
+
+      document.getElementById('card-title').textContent = `Proyectos (${_todos.length})`;
+      renderTabla(_todos);
+    } catch (err) {
+      tablaEmpty('tbody-proyectos', `Error: ${err.message}`, 7);
+      toast(err.message, 'error');
+    }
+  }
+
+  function renderTabla(lista) {
+    if (!lista.length) {
+      return tablaEmpty('tbody-proyectos', 'No se encontraron proyectos.', 7);
+    }
+    document.getElementById('tbody-proyectos').innerHTML = lista.map(p => `
+      <tr>
+        <td>
+          <div class="td-name">${p.nombre}</div>
+          <div class="td-sub">${p.modalidad}</div>
+        </td>
+        <td>
+          <div class="td-name" style="font-weight:500">${p.empresa}</div>
+          <div class="td-sub">${p.correo_empresa || ''}</div>
+        </td>
+        <td class="text-muted text-sm">${p.area || '—'}</td>
+        <td class="text-sm">
+          ${p.asesor
+            ? `<span style="color:var(--teal-l)">${p.asesor}</span>`
+            : `<span class="text-muted">Sin asignar</span>`}
+        </td>
+        <td class="text-sm text-muted">${p.alumnos_aceptados ?? 0} / ${p.num_alumnos}</td>
+        <td>${badgeEstado(p.estado)}</td>
+        <td>
+          <div class="td-actions">
+            <button class="btn btn-sm btn-secondary"
+                    onclick="verDetalle(${p.id_proyecto})">
+              Ver
+            </button>
+            ${p.estado === 'revision' ? `
+              <button class="btn btn-sm btn-primary"
+                      onclick="cambiarEstado(${p.id_proyecto}, 'publicado', this)">
+                Publicar
+              </button>
+            ` : ''}
+            ${p.estado === 'publicado' && !p.asesor ? `
+              <button class="btn btn-sm btn-secondary"
+                      onclick="abrirModalAsesor(${p.id_proyecto}, '${p.nombre.replace(/'/g,"\\'")}')">
+                Asignar asesor
+              </button>
+            ` : ''}
+            ${p.estado === 'publicado' ? `
+              <button class="btn btn-sm btn-danger"
+                      onclick="cambiarEstado(${p.id_proyecto}, 'despublicado', this)">
+                Despublicar
+              </button>
+            ` : ''}
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // ── Filtro local ─────────────────────────────────────────────
+  function filtrarTabla() {
+    const q = document.getElementById('buscador').value.toLowerCase();
+    renderTabla(_todos.filter(p =>
+      p.nombre.toLowerCase().includes(q) ||
+      (p.empresa || '').toLowerCase().includes(q)
+    ));
+  }
+
+  function setEstado(estado, btn) {
+    _estadoAct = estado;
+    document.querySelectorAll('.tab-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    cargarProyectos();
+  }
+
+  // ── Cambiar estado ───────────────────────────────────────────
+  async function cambiarEstado(id, estado, btn) {
+    btn.disabled = true;
+    const etiqueta = estado === 'publicado' ? 'Publicando…' : 'Procesando…';
+    btn.textContent = etiqueta;
+    try {
+      await proyectosApi.cambiarEstado(id, estado);
+      toast(`Proyecto ${estado === 'publicado' ? 'publicado' : 'actualizado'} correctamente.`);
+      cargarProyectos();
+    } catch (err) {
+      toast(err.message, 'error');
+      btn.disabled = false;
+      btn.textContent = estado === 'publicado' ? 'Publicar' : 'Despublicar';
+    }
+  }
+
+  // ── Asignar asesor ───────────────────────────────────────────
+  async function abrirModalAsesor(idProyecto, nombre) {
+    _proyId = idProyecto;
+    document.getElementById('asesor-proy-nombre').textContent = nombre;
+    document.getElementById('select-asesor').innerHTML =
+      '<option value="">Cargando asesores…</option>';
+    openModal('modal-asesor');
+
+    try {
+      const asesores = await usuariosApi.listar('asesor');
+      document.getElementById('select-asesor').innerHTML =
+        '<option value="">— Seleccionar —</option>' +
+        asesores.map(a => `<option value="${a.id_usuario}">${a.nombre} — ${a.area || ''}</option>`).join('');
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function confirmarAsesor() {
+    const idAsesor = parseInt(document.getElementById('select-asesor').value);
+    if (!idAsesor) return toast('Selecciona un asesor.', 'warn');
+
+    const btn = document.getElementById('btn-asignar');
+    btn.disabled = true;
+    btn.textContent = '…';
+    try {
+      await proyectosApi.asignarAsesor(_proyId, idAsesor);
+      toast('Asesor asignado correctamente.');
+      closeModal('modal-asesor');
+      cargarProyectos();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '✓ Asignar';
+    }
+  }
+
+  // ── Ver detalle ──────────────────────────────────────────────
+  async function verDetalle(id) {
+    document.getElementById('detalle-body').innerHTML = '<div class="spinner"></div>';
+    openModal('modal-detalle');
+    try {
+      const p = await proyectosApi.detalle(id);
+      document.getElementById('detalle-titulo').textContent = p.nombre;
+      document.getElementById('detalle-body').innerHTML = `
+        <div class="form-grid cols-1" style="gap:12px">
+          <div>
+            <div class="form-label">Empresa</div>
+            <div style="font-size:14px;font-weight:600">${p.empresa}</div>
+            <div class="text-sm text-muted">${p.correo_empresa}</div>
+          </div>
+          <div>
+            <div class="form-label">Responsable en empresa</div>
+            <div style="font-size:13px">${p.nombre_responsable || '—'}</div>
+            <div class="text-sm text-muted">${p.correo_responsable || ''}</div>
+          </div>
+          <div>
+            <div class="form-label">Descripción</div>
+            <p style="font-size:13px;color:var(--muted);line-height:1.6">${p.descripcion}</p>
+          </div>
+          <div>
+            <div class="form-label">Requisitos del alumno</div>
+            <p style="font-size:13px;color:var(--muted);line-height:1.6">${p.requisitos || '—'}</p>
+          </div>
+          <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
+            <div>
+              <div class="form-label">Modalidad</div>
+              <div style="font-size:13px">${p.modalidad}</div>
+            </div>
+            <div>
+              <div class="form-label">Cupo</div>
+              <div style="font-size:13px">${p.num_alumnos} alumno(s)</div>
+            </div>
+            <div>
+              <div class="form-label">Estado</div>
+              ${badgeEstado(p.estado)}
+            </div>
+          </div>
+          <div>
+            <div class="form-label">Asesor asignado</div>
+            <div style="font-size:13px">${p.asesor || '— Sin asignar —'}</div>
+          </div>
+        </div>
+      `;
+    } catch (err) {
+      document.getElementById('detalle-body').innerHTML =
+        `<div class="alert alert-danger">Error: ${err.message}</div>`;
+    }
+  }
+
+  // Cerrar modales al clic fuera
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) overlay.classList.remove('open');
+    });
+  });
+
+  cargarProyectos();
+</script>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGERP — Anteproyectos</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+
+<div class="app-layout">
+  <nav class="sidebar" id="sidebar"></nav>
+
+  <div class="app-main">
+    <header class="topbar">
+      <div class="topbar-title">Revisión de anteproyectos</div>
+    </header>
+
+    <main class="app-content">
+
+      <div class="alert alert-info mb-16">
+        📝 <strong>Flujo:</strong> La empresa acepta la postulación → el alumno sube su anteproyecto
+        → aquí lo revisas → si lo apruebas, asignas un asesor → el alumno puede empezar a subir reportes.
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="card-title">Anteproyectos pendientes</span>
+          <div class="tab-pills">
+            <button class="tab-pill active" onclick="setFiltro('pendiente', this)">Pendientes</button>
+            <button class="tab-pill" onclick="setFiltro('aprobado', this)">Aprobados</button>
+            <button class="tab-pill" onclick="setFiltro('rechazado', this)">Rechazados</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Alumno</th>
+                <th>Título del anteproyecto</th>
+                <th>Proyecto / Empresa</th>
+                <th>Fecha envío</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-antep">
+              <tr class="loading-row">
+                <td colspan="6"><div class="spinner"></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Modal: Revisar anteproyecto -->
+<div class="modal-overlay" id="modal-revisar">
+  <div class="modal" style="width:560px">
+    <div class="modal-header">
+      <span class="modal-title">Revisar anteproyecto</span>
+      <button class="modal-close" onclick="closeModal('modal-revisar')">×</button>
+    </div>
+    <div class="modal-body">
+
+      <div id="revisar-info" style="margin-bottom:16px">
+        <div class="form-label">Alumno</div>
+        <div id="rv-alumno" style="font-size:14px;font-weight:600"></div>
+        <div id="rv-matricula" class="text-sm text-muted"></div>
+        <div class="form-label mt-8">Proyecto</div>
+        <div id="rv-proyecto" class="text-sm"></div>
+        <div class="form-label mt-8">Título del anteproyecto</div>
+        <div id="rv-titulo" style="font-size:14px;font-weight:600"></div>
+      </div>
+
+      <!-- Seleccionar asesor (solo aparece si se va a aprobar) -->
+      <div id="bloque-asesor">
+        <div class="form-group mt-8">
+          <label class="form-label">
+            Asesor a asignar
+            <span class="text-muted" style="font-weight:400;text-transform:none">
+              (requerido para aprobar)
+            </span>
+          </label>
+          <select class="form-control" id="rv-asesor">
+            <option value="">— Seleccionar asesor —</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group mt-8">
+        <label class="form-label">Comentario / observaciones</label>
+        <textarea class="form-control" id="rv-comentario"
+                  placeholder="Escribe feedback para el alumno…" rows="3"></textarea>
+      </div>
+
+      <input type="hidden" id="rv-id" />
+      <input type="hidden" id="rv-postulacion-id" />
+
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-revisar')">Cancelar</button>
+        <button class="btn btn-danger" id="btn-rechazar" onclick="revisar('rechazado')">
+          ✗ Rechazar
+        </button>
+        <button class="btn btn-primary" id="btn-aprobar" onclick="revisar('aprobado')">
+          ✓ Aprobar y asignar asesor
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api/client.js"></script>
+<script src="../js/components/sidebar.js"></script>
+<script>
+  checkAuth(['admin']);
+  renderSidebar('anteproyectos.html');
+
+  let _filtro = 'pendiente';
+  let _todos  = [];
+
+  async function cargarAnteproyectos() {
+    tablaLoading('tbody-antep', 6);
+    try {
+      // La API de pendientes solo trae los pendientes
+      // Para otros estados haríamos otra llamada (simplificado aquí)
+      const lista = await anteproyectosApi.pendientes();
+      _todos = lista;
+      document.getElementById('card-title').textContent =
+        `Anteproyectos pendientes (${lista.length})`;
+      renderTabla(lista);
+    } catch (err) {
+      tablaEmpty('tbody-antep', `Error: ${err.message}`, 6);
+      toast(err.message, 'error');
+    }
+  }
+
+  function renderTabla(lista) {
+    if (!lista.length) {
+      return tablaEmpty('tbody-antep', 'No hay anteproyectos en este estado.', 6);
+    }
+    document.getElementById('tbody-antep').innerHTML = lista.map(a => `
+      <tr>
+        <td>
+          <div class="avatar-row">
+            <div class="avatar">${iniciales(a.alumno || '?')}</div>
+            <div>
+              <div class="td-name">${a.alumno}</div>
+              <div class="td-sub">${a.matricula}</div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <div class="td-name">${a.titulo}</div>
+        </td>
+        <td>
+          <div class="td-name" style="font-weight:500">${a.proyecto}</div>
+          <div class="td-sub">${a.empresa}</div>
+        </td>
+        <td class="text-muted text-sm">${fmtFecha(a.fecha_envio)}</td>
+        <td>${badgeEstado(a.estado)}</td>
+        <td>
+          ${a.estado === 'pendiente' ? `
+            <button class="btn btn-sm btn-primary"
+                    onclick="abrirRevisar(${a.id_anteproyecto}, ${a.id_postulacion || 0},
+                      '${a.alumno.replace(/'/g,"\\'")}', '${a.matricula}',
+                      '${a.proyecto.replace(/'/g,"\\'")}', '${a.titulo.replace(/'/g,"\\'")}')">
+              Revisar
+            </button>
+          ` : `<span class="text-muted text-sm">—</span>`}
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function setFiltro(filtro, btn) {
+    _filtro = filtro;
+    document.querySelectorAll('.tab-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    // En una implementación completa llamaríamos a un endpoint diferente por estado
+    cargarAnteproyectos();
+  }
+
+  // ── Abrir modal de revisión ──────────────────────────────────
+  async function abrirRevisar(id, idPost, alumno, matricula, proyecto, titulo) {
+    document.getElementById('rv-id').value            = id;
+    document.getElementById('rv-postulacion-id').value = idPost;
+    document.getElementById('rv-alumno').textContent  = alumno;
+    document.getElementById('rv-matricula').textContent = matricula;
+    document.getElementById('rv-proyecto').textContent = proyecto;
+    document.getElementById('rv-titulo').textContent  = titulo;
+    document.getElementById('rv-comentario').value    = '';
+    document.getElementById('rv-asesor').innerHTML    = '<option value="">Cargando…</option>';
+    openModal('modal-revisar');
+
+    try {
+      const asesores = await usuariosApi.listar('asesor');
+      document.getElementById('rv-asesor').innerHTML =
+        '<option value="">— Seleccionar asesor —</option>' +
+        asesores.map(a =>
+          `<option value="${a.id_usuario}">${a.nombre}${a.area ? ` — ${a.area}` : ''}</option>`
+        ).join('');
+    } catch (err) {
+      document.getElementById('rv-asesor').innerHTML =
+        '<option value="">Error al cargar asesores</option>';
+    }
+  }
+
+  // ── Aprobar o rechazar ───────────────────────────────────────
+  async function revisar(estado) {
+    const id         = parseInt(document.getElementById('rv-id').value);
+    const idPost     = parseInt(document.getElementById('rv-postulacion-id').value);
+    const idAsesor   = parseInt(document.getElementById('rv-asesor').value) || null;
+    const comentario = document.getElementById('rv-comentario').value.trim();
+
+    if (estado === 'aprobado' && !idAsesor) {
+      return toast('Selecciona un asesor para poder aprobar.', 'warn');
+    }
+
+    const btnAp = document.getElementById('btn-aprobar');
+    const btnRe = document.getElementById('btn-rechazar');
+    btnAp.disabled = btnRe.disabled = true;
+
+    try {
+      await anteproyectosApi.revisar(id, {
+        estado,
+        comentario,
+        idAsesor,
+        idPostulacion: idPost,
+      });
+      toast(estado === 'aprobado'
+        ? 'Anteproyecto aprobado y asesor asignado.'
+        : 'Anteproyecto rechazado. El alumno fue notificado.');
+      closeModal('modal-revisar');
+      cargarAnteproyectos();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      btnAp.disabled = btnRe.disabled = false;
+    }
+  }
+
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) overlay.classList.remove('open');
+    });
+  });
+
+  cargarAnteproyectos();
+</script>
+</body>
+</html>
