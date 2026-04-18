@@ -1,0 +1,20 @@
+$kind: http-request
+name: registro alumno
+url: localhost:3000/api/usuarios/registro
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"nombre\": \"Juan Pérez\",\r
+
+    \  \"correo\": \"juan@ejemplo.com\",\r
+
+    \  \"contrasena\": \"123456\",\r
+
+    \  \"matricula\": \"21240176\",\r
+
+    \  \"carrera\": \"ISC\"\r
+
+    }"
+order: 1775147299118

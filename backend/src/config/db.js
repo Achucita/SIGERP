@@ -1,15 +1,17 @@
-const sql  = require('mssql');
-const env  = require('./env');
- 
+// src/config/db.js
+const sql = require('mssql');
+require('./env');
+
 const config = {
-  server:   env.db.server,
-  port:     env.db.port,
-  database: env.db.database,
-  user:     env.db.user,
-  password: env.db.password,
+  server: process.env.DB_SERVER,
+  port: parseInt(process.env.DB_PORT || '1433'),
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
   options: {
-    encrypt:              false,  // true si usas Azure
-    trustServerCertificate: true, // necesario en desarrollo local
+    encrypt: false,
+    trustServerCertificate: true,
+    // Quita trustedConnection
   },
   pool: {
     max: 10,
@@ -17,16 +19,20 @@ const config = {
     idleTimeoutMillis: 30000,
   },
 };
- 
-// Singleton del pool
+
 let pool = null;
- 
+
 async function getPool() {
   if (!pool) {
-    pool = await sql.connect(config);
-    console.log('✅ Conexión a SQL Server establecida.');
+    try {
+      pool = await sql.connect(config);
+      console.log('✅ Conexión a SQL Server establecida (SQL Auth).');
+    } catch (error) {
+      console.error('❌ Error de conexión:', error);
+      throw error;
+    }
   }
   return pool;
 }
- 
+
 module.exports = { getPool, sql };

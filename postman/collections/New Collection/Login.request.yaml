@@ -1,0 +1,14 @@
+$kind: http-request
+name: Login
+url: localhost:3000/api/usuarios/login
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"correo\": \"juan@ejemplo.com\",\r
+
+    \  \"contrasena\": \"123456\"\r
+
+    }"
+order: 3636713884360177

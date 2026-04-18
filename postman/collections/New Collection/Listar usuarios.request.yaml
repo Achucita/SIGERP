@@ -1,0 +1,8 @@
+$kind: http-request
+url: localhost:3000/api/usuarios
+method: GET
+auth:
+  type: bearer
+  credentials:
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Nywicm9sIjoiYWx1bW5vIiwibm9tYnJlIjoiSnVhbiBQw6lyZXoiLCJpYXQiOjE3NzUzMjA2NzgsImV4cCI6MTc3NTM0OTQ3OH0.KUoWW_dmMxLvl3v51ewa2Bx1zRna-DBh7Ufj2vt1XP0
+order: 4400574235397231

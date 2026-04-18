@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGERP — Supervisión de Postulaciones</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+
+<div class="app-layout">
+  <nav class="sidebar" id="sidebar"></nav>
+
+  <div class="app-main">
+    <header class="topbar">
+      <div class="topbar-title">Supervisión de postulaciones</div>
+      <div class="topbar-actions">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="buscador"
+                 placeholder="Buscar alumno o proyecto…"
+                 oninput="filtrarTabla()" />
+        </div>
+      </div>
+    </header>
+
+    <main class="app-content">
+
+      <!-- Stats rápidas -->
+      <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+        <div class="stat-card c-warn">
+          <div class="stat-label">Pendientes</div>
+          <div class="stat-value" id="n-pendientes">—</div>
+        </div>
+        <div class="stat-card c-accent">
+          <div class="stat-label">Aceptadas</div>
+          <div class="stat-value" id="n-aceptadas">—</div>
+        </div>
+        <div class="stat-card c-danger">
+          <div class="stat-label">Rechazadas</div>
+          <div class="stat-value" id="n-rechazadas">—</div>
+        </div>
+        <div class="stat-card c-teal">
+          <div class="stat-label">Total</div>
+          <div class="stat-value" id="n-total">—</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="card-title">Postulaciones</span>
+          <div class="tab-pills">
+            <button class="tab-pill active" onclick="setEstado('', this)">Todas</button>
+            <button class="tab-pill" onclick="setEstado('pendiente', this)">Pendientes</button>
+            <button class="tab-pill" onclick="setEstado('aceptada', this)">Aceptadas</button>
+            <button class="tab-pill" onclick="setEstado('rechazada', this)">Rechazadas</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Alumno</th>
+                <th>Proyecto</th>
+                <th>Empresa</th>
+                <th>Fecha</th>
+                <th>Correo enviado</th>
+                <th>Estado</th>
+                <th>Cambiar estado</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-post">
+              <tr class="loading-row">
+                <td colspan="7"><div class="spinner"></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api/client.js"></script>
+<script src="../js/components/sidebar.js"></script>
+<script>
+  checkAuth(['admin']);
+  renderSidebar('postulaciones.html');
+
+  let _todas   = [];
+  let _estadoF = '';
+
+  async function cargarTodo() {
+    tablaLoading('tbody-post', 7);
+    try {
+      // Traemos proyectos y sus postulaciones
+      const proyectos = await proyectosApi.listar();
+      let acum = [];
+      for (const p of proyectos) {
+        const posts = await postulacionesApi.porProyecto(p.id_proyecto);
+        acum = acum.concat(posts.map(po => ({
+          ...po,
+          _proyecto: p.nombre,
+          _empresa:  p.empresa,
+        })));
+      }
+      _todas = acum;
+      actualizarContadores(_todas);
+      renderTabla(aplicarFiltro());
+    } catch (err) {
+      tablaEmpty('tbody-post', `Error: ${err.message}`, 7);
+      toast(err.message, 'error');
+    }
+  }
+
+  function actualizarContadores(lista) {
+    document.getElementById('n-total').textContent     = lista.length;
+    document.getElementById('n-pendientes').textContent =
+      lista.filter(p => p.estado === 'pendiente').length;
+    document.getElementById('n-aceptadas').textContent =
+      lista.filter(p => p.estado === 'aceptada').length;
+    document.getElementById('n-rechazadas').textContent =
+      lista.filter(p => p.estado === 'rechazada').length;
+  }
+
+  function aplicarFiltro() {
+    const q = (document.getElementById('buscador').value || '').toLowerCase();
+    return _todas.filter(p => {
+      const matchEstado = !_estadoF || p.estado === _estadoF;
+      const matchBusq   = !q ||
+        (p.alumno   || '').toLowerCase().includes(q) ||
+        (p._proyecto|| '').toLowerCase().includes(q) ||
+        (p.matricula|| '').toLowerCase().includes(q);
+      return matchEstado && matchBusq;
+    });
+  }
+
+  function filtrarTabla() { renderTabla(aplicarFiltro()); }
+
+  function setEstado(estado, btn) {
+    _estadoF = estado;
+    document.querySelectorAll('.tab-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderTabla(aplicarFiltro());
+  }
+
+  function renderTabla(lista) {
+    document.getElementById('card-title').textContent =
+      `Postulaciones (${lista.length})`;
+    if (!lista.length) {
+      return tablaEmpty('tbody-post', 'No se encontraron postulaciones.', 7);
+    }
+    document.getElementById('tbody-post').innerHTML = lista.map(p => `
+      <tr>
+        <td>
+          <div class="avatar-row">
+            <div class="avatar">${iniciales(p.alumno || '?')}</div>
+            <div>
+              <div class="td-name">${p.alumno || '—'}</div>
+              <div class="td-sub">${p.matricula || ''}</div>
+            </div>
+          </div>
+        </td>
+        <td class="td-name" style="font-weight:500">${p._proyecto}</td>
+        <td class="text-sm text-muted">${p._empresa}</td>
+        <td class="text-sm text-muted">${fmtFecha(p.fecha_postulacion)}</td>
+        <td style="text-align:center">
+          ${p.correo_enviado
+            ? '<span class="badge badge-green">✓ Enviado</span>'
+            : '<span class="badge badge-gray">Pendiente</span>'}
+        </td>
+        <td>${badgeEstado(p.estado)}</td>
+        <td>
+          <select class="filter-select"
+                  style="font-size:11px;padding:4px 8px"
+                  onchange="cambiarEstado(${p.id_postulacion}, this.value, this)"
+                  ${p.estado !== 'pendiente' ? 'disabled' : ''}>
+            <option value="pendiente"  ${p.estado==='pendiente' ?'selected':''}>Pendiente</option>
+            <option value="aceptada"   ${p.estado==='aceptada'  ?'selected':''}>Aceptada</option>
+            <option value="rechazada"  ${p.estado==='rechazada' ?'selected':''}>Rechazada</option>
+          </select>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  async function cambiarEstado(id, estado, select) {
+    select.disabled = true;
+    try {
+      await postulacionesApi.actualizarEstado(id, estado);
+      toast(`Postulación marcada como ${estado}.`);
+      await cargarTodo();
+    } catch (err) {
+      toast(err.message, 'error');
+      select.disabled = false;
+    }
+  }
+
+  cargarTodo();
+</script>
+</body>
+</html>

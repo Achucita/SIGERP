@@ -30,13 +30,19 @@ async function buscarPorId(id) {
   const res  = await pool.request()
     .input('id', sql.Int, id)
     .query(`
-      SELECT p.*, e.nombre AS empresa, e.correo_empresa,
-             e.nombre_responsable, e.correo_responsable,
-             ISNULL(u.nombre, NULL) AS asesor
+      SELECT
+        p.id_proyecto, p.nombre, p.descripcion, p.area,
+        p.modalidad, p.num_alumnos, p.estado, p.fecha_creacion,
+        p.requisitos,
+        e.nombre            AS empresa,
+        e.correo_empresa,
+        e.nombre_responsable,
+        e.correo_responsable,
+        ISNULL(u.nombre, 'Sin asignar') AS asesor
       FROM   proyectos p
-      JOIN   empresas  e   ON e.id_empresa = p.id_empresa
-      LEFT JOIN asesores  a   ON a.id_asesor  = p.id_asesor
-      LEFT JOIN usuarios  u   ON u.id_usuario = a.id_asesor
+      JOIN   empresas  e   ON e.id_empresa  = p.id_empresa
+      LEFT JOIN asesores  a   ON a.id_asesor   = p.id_asesor
+      LEFT JOIN usuarios  u   ON u.id_usuario  = a.id_asesor
       WHERE  p.id_proyecto = @id
     `);
   return res.recordset[0] || null;

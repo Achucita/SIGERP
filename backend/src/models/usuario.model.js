@@ -107,8 +107,17 @@ async function darDeBaja(id) {
     .input('id', sql.Int, id)
     .query('UPDATE usuarios SET activo = 0 WHERE id_usuario = @id');
 }
+
+async function actualizarContrasena(id, hash) {
+  const pool = await getPool();
+  await pool.request()
+    .input('id',   sql.Int,      id)
+    .input('hash', sql.NVarChar, hash)
+    .query('UPDATE usuarios SET contrasena = @hash WHERE id_usuario = @id');
+}
  
 module.exports = {
   buscarPorCorreo, buscarPorId, correoExiste, crearUsuario,
   crearAlumno, matriculaExiste, actualizarPerfil, listarUsuarios, darDeBaja,
+  darDeBaja, actualizarContrasena, 
 };

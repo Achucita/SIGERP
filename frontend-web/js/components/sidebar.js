@@ -13,6 +13,7 @@ function renderSidebar(paginaActiva = '') {
       { href: 'proyectos.html',       icon: '📁', label: 'Proyectos' },
       { href: 'anteproyectos.html',   icon: '📝', label: 'Anteproyectos' },
       { href: 'postulaciones.html',   icon: '📋', label: 'Postulaciones' },
+      { href: 'perfil.html', icon: '👤', label: 'Mi perfil' },
     ]},
     { seccion: 'Reportes', items: [
       { href: 'reportes-sistema.html', icon: '📊', label: 'Reportes del sistema' },
@@ -25,6 +26,7 @@ function renderSidebar(paginaActiva = '') {
       { href: 'mis-alumnos.html',      icon: '👥', label: 'Mis alumnos' },
       { href: 'reportes-alumno.html',  icon: '📄', label: 'Reportes' },
       { href: 'evaluaciones.html',     icon: '⭐', label: 'Evaluaciones' },
+      { href: 'perfil.html', icon: '👤', label: 'Mi perfil' },
     ]},
   ];
 

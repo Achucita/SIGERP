@@ -9,5 +9,6 @@ router.get('/perfil',      auth, ctrl.perfil);            // cualquier rol auten
 router.put('/:id',         auth, ctrl.actualizar);        // propio usuario o admin
 router.get('/',            auth, roles('admin'), ctrl.listar);  // solo admin
 router.delete('/:id',      auth, roles('admin'), ctrl.baja);    // solo admin
+router.put('/:id/password', auth, ctrl.cambiarPassword);
  
 module.exports = router;

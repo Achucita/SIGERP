@@ -36,7 +36,7 @@ function getUsuario() {
 function logout() {
   localStorage.removeItem(AUTH_KEY);
   localStorage.removeItem(USER_KEY);
-  window.location.href = '/pages/login.html';
+  window.location.href = 'login.html';
 }
 
 /**
@@ -68,11 +68,11 @@ function checkAuth(rolesPermitidos = []) {
  */
 function redirigirPorRol(rol) {
   const rutas = {
-    admin:  '/pages/dashboard-admin.html',
-    asesor: '/pages/dashboard-asesor.html',
-    alumno: '/pages/dashboard-alumno.html',
+    admin:  'dashboard-admin.html',
+    asesor: 'dashboard-asesor.html',
+    alumno: 'login.html',
   };
-  window.location.href = rutas[rol] || '/pages/login.html';
+  window.location.href = rutas[rol] || 'login.html';
 }
 
 /**

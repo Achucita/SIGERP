@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGERP — Dashboard Asesor</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+
+<div class="app-layout">
+  <nav class="sidebar" id="sidebar"></nav>
+
+  <div class="app-main">
+    <header class="topbar">
+      <div class="topbar-title">Dashboard</div>
+    </header>
+
+    <main class="app-content">
+
+      <!-- Banner de bienvenida -->
+      <div class="profile-banner" id="profile-banner">
+        <div class="avatar-lg" id="banner-av">—</div>
+        <div>
+          <div class="profile-name" id="banner-nombre">Cargando…</div>
+          <div class="profile-meta" id="banner-area">Asesor Académico</div>
+          <div class="profile-tags" id="banner-tags"></div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+        <div class="stat-card c-teal">
+          <div class="stat-label">Alumnos asignados</div>
+          <div class="stat-value" id="s-alumnos">—</div>
+        </div>
+        <div class="stat-card c-warn">
+          <div class="stat-label">Reportes por revisar</div>
+          <div class="stat-value" id="s-reportes">—</div>
+        </div>
+        <div class="stat-card c-accent">
+          <div class="stat-label">Evaluaciones emitidas</div>
+          <div class="stat-value" id="s-eval">—</div>
+        </div>
+      </div>
+
+      <div class="two-col">
+
+        <!-- Mis alumnos -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Mis alumnos</span>
+            <a href="mis-alumnos.html" class="btn btn-sm btn-secondary">Ver todos</a>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Alumno</th>
+                  <th>Avance</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-alumnos">
+                <tr class="loading-row">
+                  <td colspan="3"><div class="spinner"></div></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Reportes pendientes de revisar -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Reportes pendientes</span>
+            <a href="reportes-alumno.html" class="btn btn-sm btn-secondary">Ver todos</a>
+          </div>
+          <div id="lista-reportes">
+            <div class="spinner"></div>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api/client.js"></script>
+<script src="../js/components/sidebar.js"></script>
+<script>
+  const usuario = checkAuth(['asesor']);
+  renderSidebar('dashboard-asesor.html');
+
+  async function cargarDashboard() {
+    try {
+      const perfil = await usuariosApi.perfil();
+
+      // Banner
+      document.getElementById('banner-av').textContent    = iniciales(perfil.nombre);
+      document.getElementById('banner-nombre').textContent = perfil.nombre;
+      document.getElementById('banner-area').textContent  =
+        `Asesor Académico · ${perfil.area || 'Departamento de Sistemas'}`;
+
+      // Para obtener alumnos bajo este asesor necesitamos
+      // los proyectos que tienen id_asesor = mi id
+      const proyectos = await proyectosApi.listar();
+      const misProy   = proyectos.filter(p => p.asesor === perfil.nombre);
+
+      // Recopilar alumnos aceptados de mis proyectos
+      let misAlumnos = [];
+      for (const p of misProy) {
+        const posts = await postulacionesApi.porProyecto(p.id_proyecto);
+        const acept = posts.filter(po => po.estado === 'aceptada');
+        misAlumnos  = misAlumnos.concat(
+          acept.map(po => ({ ...po, proyecto: p.nombre, idProyecto: p.id_proyecto }))
+        );
+      }
+
+      document.getElementById('s-alumnos').textContent = misAlumnos.length;
+
+      // Reportes de todos mis proyectos
+      let todosRep = [];
+      for (const p of misProy) {
+        const reps = await reportesApi.porProyecto(p.idProyecto || p.id_proyecto);
+        todosRep   = todosRep.concat(reps.map(r => ({ ...r, _proyecto: p.nombre })));
+      }
+      const pendRep = todosRep.filter(r => r.estado === 'enviado');
+      document.getElementById('s-reportes').textContent = pendRep.length;
+
+      // Evaluaciones emitidas (simplificado: contamos con valor estático de la BD)
+      document.getElementById('s-eval').textContent = '—';
+
+      // Tags del banner
+      document.getElementById('banner-tags').innerHTML = [
+        `${misAlumnos.length} alumno(s) asignado(s)`,
+        `${misProy.length} proyecto(s)`,
+      ].map(t => `<span class="profile-tag">${t}</span>`).join('');
+
+      // Tabla de alumnos
+      if (!misAlumnos.length) {
+        tablaEmpty('tbody-alumnos', 'Sin alumnos asignados aún.', 3);
+      } else {
+        document.getElementById('tbody-alumnos').innerHTML = misAlumnos.map(a => `
+          <tr>
+            <td>
+              <div class="avatar-row">
+                <div class="avatar">${iniciales(a.alumno || '?')}</div>
+                <div>
+                  <div class="td-name">${a.alumno || '—'}</div>
+                  <div class="td-sub">${a.matricula || ''}</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="progress-bar">
+                <div class="progress-fill" style="width:${a._avance || 30}%"></div>
+              </div>
+              <span class="text-sm text-muted">${a._avance || '—'}%</span>
+            </td>
+            <td>
+              <div class="td-actions">
+                <a href="reportes-alumno.html?proyecto=${a.idProyecto}"
+                   class="btn btn-sm btn-secondary">Reportes</a>
+                <a href="evaluaciones.html?alumno=${a.id_alumno}"
+                   class="btn btn-sm btn-primary">Evaluar</a>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      // Lista de reportes pendientes
+      const listaEl = document.getElementById('lista-reportes');
+      if (!pendRep.length) {
+        listaEl.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📄</div>
+            <p>Sin reportes pendientes</p>
+          </div>`;
+      } else {
+        listaEl.innerHTML = pendRep.slice(0, 5).map(r => `
+          <div class="activity-item">
+            <div class="activity-dot" style="background:var(--accent)"></div>
+            <div class="activity-text">
+              <strong>${r.alumno || 'Alumno'}</strong> — ${r.titulo}
+              <div class="text-sm text-muted">${r._proyecto} · ${fmtFecha(r.fecha_envio)}</div>
+            </div>
+            <a href="reportes-alumno.html" class="btn btn-sm btn-primary">Revisar</a>
+          </div>
+        `).join('');
+      }
+
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  cargarDashboard();
+</script>
+</body>
+</html>

@@ -1,23 +1,27 @@
+// src/config/env.js
 require('dotenv').config();
- 
+
+// Con Windows Auth no se necesitan DB_USER ni DB_PASSWORD
 const required = [
-  'DB_SERVER', 'DB_NAME', 'DB_USER', 'DB_PASSWORD',
-  'JWT_SECRET', 'SMTP_HOST', 'SMTP_USER', 'SMTP_PASS',
+  'DB_SERVER',
+  'DB_NAME',
+  'JWT_SECRET',
+  'SMTP_HOST',
+  'SMTP_USER',
+  'SMTP_PASS',
 ];
- 
+
 required.forEach((key) => {
   if (!process.env[key]) {
     throw new Error(`Variable de entorno faltante: ${key}`);
   }
 });
- 
+
 module.exports = {
   db: {
     server:   process.env.DB_SERVER,
     port:     parseInt(process.env.DB_PORT || '1433'),
     database: process.env.DB_NAME,
-    user:     process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
   },
   jwt: {
     secret:    process.env.JWT_SECRET,

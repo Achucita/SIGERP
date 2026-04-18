@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGERP — Mi perfil</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+
+<div class="app-layout">
+  <nav class="sidebar" id="sidebar"></nav>
+
+  <div class="app-main">
+    <header class="topbar">
+      <div class="topbar-title">Mi perfil</div>
+    </header>
+
+    <main class="app-content">
+
+      <!-- Banner -->
+      <div class="profile-banner" id="profile-banner">
+        <div class="avatar-lg" id="banner-av">—</div>
+        <div>
+          <div class="profile-name"  id="banner-nombre">Cargando…</div>
+          <div class="profile-meta"  id="banner-rol">—</div>
+          <div class="profile-tags"  id="banner-tags"></div>
+        </div>
+      </div>
+
+      <div class="two-col">
+
+        <!-- Datos personales -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Información personal</span>
+          </div>
+          <form id="form-perfil" onsubmit="guardarPerfil(event)">
+            <div class="card-body">
+              <div class="form-group" style="margin-bottom:16px">
+                <label class="form-label">Nombre completo <span class="req">*</span></label>
+                <input class="form-control" id="p-nombre" required />
+              </div>
+              <div class="form-group" style="margin-bottom:16px">
+                <label class="form-label">Correo institucional <span class="req">*</span></label>
+                <input class="form-control" id="p-correo" type="email" required />
+              </div>
+              <div class="form-group" style="margin-bottom:16px">
+                <label class="form-label">Rol en el sistema</label>
+                <input class="form-control" id="p-rol"
+                       readonly style="background:var(--surface);color:var(--muted)" />
+              </div>
+              <div id="campo-matricula" class="form-group" style="margin-bottom:16px;display:none">
+                <label class="form-label">Matrícula</label>
+                <input class="form-control" id="p-matricula"
+                       readonly style="background:var(--surface);color:var(--muted)" />
+              </div>
+              <div id="campo-area" class="form-group" style="margin-bottom:0;display:none">
+                <label class="form-label">Área / Departamento</label>
+                <input class="form-control" id="p-area"
+                       readonly style="background:var(--surface);color:var(--muted)" />
+              </div>
+            </div>
+            <div class="form-footer">
+              <button type="submit" class="btn btn-primary" id="btn-perfil">
+                💾 Guardar cambios
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Cambiar contraseña -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Cambiar contraseña</span>
+          </div>
+          <form id="form-pass" onsubmit="cambiarPassword(event)">
+            <div class="card-body">
+              <div class="alert alert-info" style="margin-bottom:16px">
+                ℹ️ Deja los campos vacíos si no deseas cambiar tu contraseña.
+              </div>
+              <div class="form-group" style="margin-bottom:16px">
+                <label class="form-label">Contraseña actual <span class="req">*</span></label>
+                <input class="form-control" id="p-pass-actual"
+                       type="password" placeholder="••••••••" />
+              </div>
+              <div class="form-group" style="margin-bottom:16px">
+                <label class="form-label">Nueva contraseña <span class="req">*</span></label>
+                <input class="form-control" id="p-pass-nueva"
+                       type="password" placeholder="Mínimo 8 caracteres" />
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Confirmar nueva contraseña <span class="req">*</span></label>
+                <input class="form-control" id="p-pass-confirma"
+                       type="password" placeholder="Repetir contraseña" />
+              </div>
+            </div>
+            <div class="form-footer">
+              <button type="submit" class="btn btn-primary" id="btn-pass">
+                🔒 Actualizar contraseña
+              </button>
+            </div>
+          </form>
+        </div>
+
+      </div>
+
+      <!-- Información de sesión -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Sesión activa</span>
+        </div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+            <div>
+              <div class="form-label">Usuario</div>
+              <div style="font-size:13px;margin-top:4px" id="ses-nombre">—</div>
+            </div>
+            <div>
+              <div class="form-label">Rol</div>
+              <div style="margin-top:4px" id="ses-rol">—</div>
+            </div>
+            <div>
+              <div class="form-label">Acción</div>
+              <button class="btn btn-danger btn-sm" style="margin-top:4px"
+                      onclick="logout()">
+                ⎋ Cerrar sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api/client.js"></script>
+<script src="../js/components/sidebar.js"></script>
+<script>
+  const usuario = checkAuth(['admin', 'asesor']);
+  renderSidebar('perfil.html');
+
+  async function cargarPerfil() {
+    try {
+      const perfil = await usuariosApi.perfil();
+
+      // Banner
+      document.getElementById('banner-av').textContent     = iniciales(perfil.nombre);
+      document.getElementById('banner-nombre').textContent = perfil.nombre;
+      document.getElementById('banner-rol').textContent    =
+        perfil.rol === 'admin' ? 'Administrador del sistema' : 'Asesor Académico';
+
+      const tags = [];
+      if (perfil.rol === 'asesor' && perfil.area) tags.push(perfil.area);
+      if (perfil.matricula) tags.push(`Matrícula: ${perfil.matricula}`);
+      document.getElementById('banner-tags').innerHTML =
+        tags.map(t => `<span class="profile-tag">${t}</span>`).join('');
+
+      // Formulario
+      document.getElementById('p-nombre').value = perfil.nombre;
+      document.getElementById('p-correo').value = perfil.correo;
+      document.getElementById('p-rol').value    =
+        perfil.rol === 'admin' ? 'Administrador' : 'Asesor Académico';
+
+      if (perfil.matricula) {
+        document.getElementById('campo-matricula').style.display = 'block';
+        document.getElementById('p-matricula').value = perfil.matricula;
+      }
+      if (perfil.area) {
+        document.getElementById('campo-area').style.display = 'block';
+        document.getElementById('p-area').value = perfil.area;
+      }
+
+      // Sesión activa
+      document.getElementById('ses-nombre').textContent = perfil.nombre;
+      document.getElementById('ses-rol').innerHTML      = badgeEstado(perfil.rol);
+
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function guardarPerfil(e) {
+    e.preventDefault();
+    const nombre = document.getElementById('p-nombre').value.trim();
+    const correo = document.getElementById('p-correo').value.trim();
+    const btn    = document.getElementById('btn-perfil');
+
+    btn.disabled    = true;
+    btn.textContent = 'Guardando…';
+    try {
+      await usuariosApi.actualizar(usuario.id, { nombre, correo });
+
+      // Actualizar localStorage con el nuevo nombre
+      const u  = getUsuario();
+      u.nombre = nombre;
+      u.correo = correo;
+      localStorage.setItem('sigerp_user', JSON.stringify(u));
+
+      toast('Perfil actualizado correctamente.');
+      cargarPerfil();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = '💾 Guardar cambios';
+    }
+  }
+
+  async function cambiarPassword(e) {
+    e.preventDefault();
+    const actual   = document.getElementById('p-pass-actual').value;
+    const nueva    = document.getElementById('p-pass-nueva').value;
+    const confirma = document.getElementById('p-pass-confirma').value;
+
+    if (!actual || !nueva || !confirma)
+      return toast('Completa los tres campos de contraseña.', 'warn');
+    if (nueva.length < 8)
+      return toast('La nueva contraseña debe tener al menos 8 caracteres.', 'warn');
+    if (nueva !== confirma)
+      return toast('Las contraseñas nuevas no coinciden.', 'warn');
+
+    const btn    = document.getElementById('btn-pass');
+    btn.disabled    = true;
+    btn.textContent = 'Actualizando…';
+    try {
+      await api.put(`/usuarios/${usuario.id}/password`, {
+        contrasenaActual: actual,
+        contrasenaNueva:  nueva,
+      });
+      toast('Contraseña actualizada correctamente.');
+      document.getElementById('form-pass').reset();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = '🔒 Actualizar contraseña';
+    }
+  }
+
+  cargarPerfil();
+</script>
+</body>
+</html>

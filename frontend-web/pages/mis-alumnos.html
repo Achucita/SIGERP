@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGERP — Mis alumnos</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+
+<div class="app-layout">
+  <nav class="sidebar" id="sidebar"></nav>
+
+  <div class="app-main">
+    <header class="topbar">
+      <div class="topbar-title">Mis alumnos asignados</div>
+      <div class="topbar-actions">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="buscador"
+                 placeholder="Buscar alumno…"
+                 oninput="filtrarTabla()" />
+        </div>
+      </div>
+    </header>
+
+    <main class="app-content">
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="card-title">Alumnos</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Alumno</th>
+                <th>Matrícula</th>
+                <th>Proyecto</th>
+                <th>Empresa</th>
+                <th>Reportes</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-alumnos">
+              <tr class="loading-row">
+                <td colspan="6"><div class="spinner"></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Modal: ver evaluaciones del alumno -->
+<div class="modal-overlay" id="modal-eval">
+  <div class="modal" style="width:580px">
+    <div class="modal-header">
+      <span class="modal-title">Evaluaciones — <span id="eval-nombre"></span></span>
+      <button class="modal-close" onclick="closeModal('modal-eval')">×</button>
+    </div>
+    <div class="modal-body" id="eval-body">
+      <div class="spinner"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api/client.js"></script>
+<script src="../js/components/sidebar.js"></script>
+<script>
+  checkAuth(['asesor']);
+  renderSidebar('mis-alumnos.html');
+
+  let _todos = [];
+
+  async function cargarAlumnos() {
+    tablaLoading('tbody-alumnos', 6);
+    try {
+      const perfil    = await usuariosApi.perfil();
+      const proyectos = await proyectosApi.listar();
+      const misProy   = proyectos.filter(p => p.asesor === perfil.nombre);
+
+      let lista = [];
+      for (const p of misProy) {
+        const posts = await postulacionesApi.porProyecto(p.id_proyecto);
+        const acept = posts.filter(po => po.estado === 'aceptada');
+        // Obtener reportes de cada alumno en este proyecto
+        for (const po of acept) {
+          const reps = await reportesApi.porProyecto(p.id_proyecto);
+          const misReps = reps.filter(r => r.matricula === po.matricula);
+          lista.push({
+            ...po,
+            _proyecto:   p.nombre,
+            _empresa:    p.empresa,
+            _idProyecto: p.id_proyecto,
+            _nReportes:  misReps.length,
+            _nPend:      misReps.filter(r => r.estado === 'enviado').length,
+          });
+        }
+      }
+      _todos = lista;
+      document.getElementById('card-title').textContent = `Alumnos asignados (${lista.length})`;
+      renderTabla(lista);
+    } catch (err) {
+      tablaEmpty('tbody-alumnos', `Error: ${err.message}`, 6);
+      toast(err.message, 'error');
+    }
+  }
+
+  function filtrarTabla() {
+    const q = document.getElementById('buscador').value.toLowerCase();
+    renderTabla(_todos.filter(a =>
+      (a.alumno || '').toLowerCase().includes(q) ||
+      (a.matricula || '').toLowerCase().includes(q)
+    ));
+  }
+
+  function renderTabla(lista) {
+    if (!lista.length) {
+      return tablaEmpty('tbody-alumnos', 'Sin alumnos asignados.', 6);
+    }
+    document.getElementById('tbody-alumnos').innerHTML = lista.map(a => `
+      <tr>
+        <td>
+          <div class="avatar-row">
+            <div class="avatar">${iniciales(a.alumno || '?')}</div>
+            <div>
+              <div class="td-name">${a.alumno || '—'}</div>
+              <div class="td-sub">${a.correo || ''}</div>
+            </div>
+          </div>
+        </td>
+        <td class="text-sm text-muted">${a.matricula || '—'}</td>
+        <td>
+          <div class="td-name" style="font-weight:500">${a._proyecto}</div>
+        </td>
+        <td class="text-sm text-muted">${a._empresa}</td>
+        <td>
+          <span class="badge ${a._nPend > 0 ? 'badge-amber' : 'badge-gray'}">
+            ${a._nReportes} enviado(s)${a._nPend > 0 ? ` · ${a._nPend} pendiente(s)` : ''}
+          </span>
+        </td>
+        <td>
+          <div class="td-actions">
+            <a href="reportes-alumno.html?proyecto=${a._idProyecto}"
+               class="btn btn-sm btn-secondary">
+              Ver reportes
+            </a>
+            <a href="evaluaciones.html?alumno=${a.id_alumno}&nombre=${encodeURIComponent(a.alumno)}&proyecto=${a._idProyecto}"
+               class="btn btn-sm btn-primary">
+              Evaluar
+            </a>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  document.querySelectorAll('.modal-overlay').forEach(o =>
+    o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); })
+  );
+
+  cargarAlumnos();
+</script>
+</body>
+</html>

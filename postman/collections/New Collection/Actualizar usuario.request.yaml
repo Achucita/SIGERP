@@ -1,0 +1,18 @@
+$kind: http-request
+name: Actualizar usuario
+url: localhost:3000/api/usuarios/7
+method: PUT
+body:
+  type: json
+  content: "{\r
+
+    \  \"nombre\": \"Juan Actualizado\",\r
+
+    \  \"correo\": \"nuevo@ejemplo.com\"\r
+
+    }"
+auth:
+  type: bearer
+  credentials:
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6Nywicm9sIjoiYWx1bW5vIiwibm9tYnJlIjoiSnVhbiBQw6lyZXoiLCJpYXQiOjE3NzUzMjA2NzgsImV4cCI6MTc3NTM0OTQ3OH0.KUoWW_dmMxLvl3v51ewa2Bx1zRna-DBh7Ufj2vt1XP0
+order: 4394985678151067

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGERP — Evaluaciones</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+
+<div class="app-layout">
+  <nav class="sidebar" id="sidebar"></nav>
+
+  <div class="app-main">
+    <header class="topbar">
+      <div class="topbar-title" id="topbar-titulo">Evaluaciones</div>
+      <div class="topbar-actions">
+        <a href="mis-alumnos.html" class="btn btn-secondary btn-sm">← Mis alumnos</a>
+        <button class="btn btn-primary" onclick="openModal('modal-eval')">
+          + Nueva evaluación
+        </button>
+      </div>
+    </header>
+
+    <main class="app-content">
+
+      <!-- Info del alumno si viene por URL -->
+      <div id="alumno-banner" class="profile-banner" style="display:none">
+        <div class="avatar-lg" id="al-av">—</div>
+        <div>
+          <div class="profile-name" id="al-nombre">—</div>
+          <div class="profile-meta" id="al-mat">—</div>
+          <div class="profile-tags">
+            <span class="profile-tag" id="al-proyecto">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Historial de evaluaciones -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="card-title">Evaluaciones emitidas</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Calificación</th>
+                <th>Período evaluado</th>
+                <th>Comentarios</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-eval">
+              <tr class="loading-row">
+                <td colspan="5"><div class="spinner"></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Alerta calificación final -->
+      <div id="alert-final" class="alert alert-warn" style="display:none">
+        ⚠️ <strong>Calificación final:</strong> una vez guardada no puede modificarse.
+        Asegúrate de que los datos sean correctos.
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Modal: Nueva evaluación -->
+<div class="modal-overlay" id="modal-eval">
+  <div class="modal" style="width:560px">
+    <div class="modal-header">
+      <span class="modal-title">Nueva evaluación</span>
+      <button class="modal-close" onclick="closeModal('modal-eval')">×</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Selector de alumno si no viene por URL -->
+      <div id="bloque-alumno-sel" class="form-group" style="margin-bottom:14px">
+        <label class="form-label">Alumno a evaluar <span class="req">*</span></label>
+        <select class="form-control" id="ev-alumno-sel">
+          <option value="">Cargando alumnos…</option>
+        </select>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Tipo de evaluación <span class="req">*</span></label>
+          <select class="form-control" id="ev-tipo"
+                  onchange="toggleAlertaFinal()">
+            <option value="parcial">Evaluación parcial</option>
+            <option value="final">Calificación final</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Calificación (0 – 10) <span class="req">*</span></label>
+          <input class="form-control" id="ev-cal"
+                 type="number" min="0" max="10" step="0.1"
+                 placeholder="Ej. 8.5" />
+        </div>
+        <div class="form-group full">
+          <label class="form-label">Período evaluado</label>
+          <input class="form-control" id="ev-periodo"
+                 placeholder="Ej. 6 al 25 de marzo 2026" />
+        </div>
+        <div class="form-group full">
+          <label class="form-label">Comentarios y observaciones <span class="req">*</span></label>
+          <textarea class="form-control" id="ev-comentarios"
+                    placeholder="Describe el desempeño del alumno durante el período evaluado…"
+                    rows="5"></textarea>
+        </div>
+      </div>
+
+      <div id="alert-final-modal" class="alert alert-danger" style="display:none;margin-top:10px">
+        ⚠️ <strong>Calificación final:</strong> esta acción es irreversible. Verifica todos los datos.
+      </div>
+
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-eval')">Cancelar</button>
+        <button class="btn btn-primary" id="btn-guardar-eval" onclick="guardarEvaluacion()">
+          💾 Guardar evaluación
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api/client.js"></script>
+<script src="../js/components/sidebar.js"></script>
+<script>
+  checkAuth(['asesor']);
+  renderSidebar('evaluaciones.html');
+
+  const params     = new URLSearchParams(window.location.search);
+  const idAlumURL  = params.get('alumno')   ? parseInt(params.get('alumno'))  : null;
+  const nombreURL  = params.get('nombre')   ? decodeURIComponent(params.get('nombre')) : null;
+  const idProyURL  = params.get('proyecto') ? parseInt(params.get('proyecto')): null;
+
+  let _misAlumnos  = [];  // { id_alumno, alumno, matricula, idProyecto }
+
+  async function init() {
+    try {
+      // Cargar alumnos de mis proyectos
+      const perfil    = await usuariosApi.perfil();
+      const proyectos = await proyectosApi.listar();
+      const misProy   = proyectos.filter(p => p.asesor === perfil.nombre);
+
+      for (const p of misProy) {
+        const posts = await postulacionesApi.porProyecto(p.id_proyecto);
+        const acept = posts.filter(po => po.estado === 'aceptada');
+        acept.forEach(po => {
+          _misAlumnos.push({
+            id_alumno:   po.id_alumno,
+            alumno:      po.alumno,
+            matricula:   po.matricula,
+            idProyecto:  p.id_proyecto,
+            proyecto:    p.nombre,
+          });
+        });
+      }
+
+      // Poblar selector de alumno en el modal
+      document.getElementById('ev-alumno-sel').innerHTML =
+        '<option value="">— Seleccionar alumno —</option>' +
+        _misAlumnos.map(a =>
+          `<option value="${a.id_alumno}|${a.idProyecto}">${a.alumno} (${a.matricula})</option>`
+        ).join('');
+
+      // Si viene alumno por URL
+      if (idAlumURL && nombreURL) {
+        document.getElementById('alumno-banner').style.display = 'flex';
+        document.getElementById('al-av').textContent      = iniciales(nombreURL);
+        document.getElementById('al-nombre').textContent  = nombreURL;
+        document.getElementById('al-mat').textContent     =
+          _misAlumnos.find(a => a.id_alumno === idAlumURL)?.matricula || '—';
+        document.getElementById('al-proyecto').textContent =
+          _misAlumnos.find(a => a.id_alumno === idAlumURL)?.proyecto || '—';
+
+        // Pre-seleccionar en el modal
+        const opt = `${idAlumURL}|${idProyURL}`;
+        if (document.querySelector(`#ev-alumno-sel option[value="${opt}"]`)) {
+          document.getElementById('ev-alumno-sel').value = opt;
+        }
+
+        document.getElementById('topbar-titulo').textContent =
+          `Evaluaciones — ${nombreURL}`;
+
+        cargarEvaluaciones(idAlumURL);
+      } else {
+        tablaEmpty('tbody-eval', 'Selecciona un alumno para ver sus evaluaciones.', 5);
+        document.getElementById('card-title').textContent = 'Evaluaciones';
+      }
+
+      // Cuando cambia el selector de alumno en el modal → recargar
+      document.getElementById('ev-alumno-sel').addEventListener('change', () => {
+        const val = document.getElementById('ev-alumno-sel').value;
+        if (val) {
+          const [idAl] = val.split('|').map(Number);
+          cargarEvaluaciones(idAl);
+        }
+      });
+
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function cargarEvaluaciones(idAlumno) {
+    tablaLoading('tbody-eval', 5);
+    try {
+      const lista = await evaluacionesApi.porAlumno(idAlumno);
+      document.getElementById('card-title').textContent =
+        `Evaluaciones emitidas (${lista.length})`;
+
+      const tieneFinal = lista.some(e => e.tipo === 'final');
+      document.getElementById('alert-final').style.display =
+        tieneFinal ? 'flex' : 'none';
+
+      if (!lista.length) {
+        return tablaEmpty('tbody-eval', 'Sin evaluaciones emitidas aún.', 5);
+      }
+
+      document.getElementById('tbody-eval').innerHTML = lista.map(e => `
+        <tr>
+          <td>${badgeEstado(e.tipo)}</td>
+          <td>
+            <span style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;
+              color:${e.calificacion >= 7 ? 'var(--accent2)' : 'var(--danger)'}">
+              ${e.calificacion}
+            </span>
+          </td>
+          <td class="text-sm text-muted">${e.periodo_evaluado || '—'}</td>
+          <td style="max-width:280px">
+            <div class="text-sm" style="color:var(--muted);line-height:1.5">
+              "${e.comentarios || '—'}"
+            </div>
+          </td>
+          <td class="text-sm text-muted">${fmtFecha(e.fecha_evaluacion)}</td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      tablaEmpty('tbody-eval', `Error: ${err.message}`, 5);
+    }
+  }
+
+  function toggleAlertaFinal() {
+    const esFinal = document.getElementById('ev-tipo').value === 'final';
+    document.getElementById('alert-final-modal').style.display =
+      esFinal ? 'flex' : 'none';
+  }
+
+  async function guardarEvaluacion() {
+    const val = document.getElementById('ev-alumno-sel').value;
+    if (!val) return toast('Selecciona un alumno.', 'warn');
+
+    const [idAlumno, idProyecto] = val.split('|').map(Number);
+    const tipo         = document.getElementById('ev-tipo').value;
+    const calificacion = parseFloat(document.getElementById('ev-cal').value);
+    const comentarios  = document.getElementById('ev-comentarios').value.trim();
+    const periodo      = document.getElementById('ev-periodo').value.trim();
+
+    if (isNaN(calificacion) || calificacion < 0 || calificacion > 10)
+      return toast('La calificación debe estar entre 0 y 10.', 'warn');
+    if (!comentarios)
+      return toast('Los comentarios son obligatorios.', 'warn');
+
+    const btn = document.getElementById('btn-guardar-eval');
+    btn.disabled = true;
+    btn.textContent = 'Guardando…';
+
+    try {
+      await evaluacionesApi.crear({
+        idAlumno,
+        idProyecto,
+        tipo,
+        calificacion,
+        comentarios,
+        periodoEvaluado: periodo,
+      });
+      toast(tipo === 'final'
+        ? 'Calificación final registrada.'
+        : 'Evaluación parcial guardada. El alumno fue notificado.');
+      closeModal('modal-eval');
+      cargarEvaluaciones(idAlumno);
+
+      // Limpiar form
+      document.getElementById('ev-cal').value        = '';
+      document.getElementById('ev-comentarios').value = '';
+      document.getElementById('ev-periodo').value    = '';
+      document.getElementById('ev-tipo').value       = 'parcial';
+      document.getElementById('alert-final-modal').style.display = 'none';
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '💾 Guardar evaluación';
+    }
+  }
+
+  document.querySelectorAll('.modal-overlay').forEach(o =>
+    o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); })
+  );
+
+  init();
+</script>
+</body>
+</html>

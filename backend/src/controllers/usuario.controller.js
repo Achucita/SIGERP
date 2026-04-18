@@ -92,5 +92,31 @@ async function baja(req, res) {
     return serverError(res, err);
   }
 }
+
+async function cambiarPassword(req, res) {
+  try {
+    const id = parseInt(req.params.id);
+    if (req.usuario.id !== id)
+      return forbidden(res, 'No puedes cambiar la contraseña de otro usuario.');
+
+    const { contrasenaActual, contrasenaNueva } = req.body;
+    if (!contrasenaActual || !contrasenaNueva)
+      return badRequest(res, 'Se requieren contrasenaActual y contrasenaNueva.');
+
+    const usuario = await Model.buscarPorId(id);
+    if (!usuario) return notFound(res, 'Usuario no encontrado.');
+
+    // Verificar contraseña actual
+    const usuarioConHash = await Model.buscarPorCorreo(usuario.correo);
+    const valida = await bcrypt.compare(contrasenaActual, usuarioConHash.contrasena);
+    if (!valida) return badRequest(res, 'La contraseña actual es incorrecta.');
+
+    const hash = await bcrypt.hash(contrasenaNueva, 10);
+    await Model.actualizarContrasena(id, hash);
+    return ok(res, {}, 'Contraseña actualizada.');
+  } catch (err) {
+    return serverError(res, err);
+  }
+}
  
-module.exports = { registro, login, perfil, actualizar, listar, baja };
+module.exports = { registro, login, perfil, actualizar, listar, baja, cambiarPassword };

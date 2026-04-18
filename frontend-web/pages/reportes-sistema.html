@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGERP — Reportes del sistema</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+
+<div class="app-layout">
+  <nav class="sidebar" id="sidebar"></nav>
+
+  <div class="app-main">
+    <header class="topbar">
+      <div class="topbar-title">Reportes del sistema</div>
+    </header>
+
+    <main class="app-content">
+
+      <!-- Resumen estadístico -->
+      <div class="stats-grid" id="stats-wrap">
+        <div class="stat-card c-teal">
+          <div class="stat-icon">👤</div>
+          <div class="stat-label">Alumnos registrados</div>
+          <div class="stat-value" id="s-alumnos">—</div>
+        </div>
+        <div class="stat-card c-accent">
+          <div class="stat-icon">🎓</div>
+          <div class="stat-label">Asesores activos</div>
+          <div class="stat-value" id="s-asesores">—</div>
+        </div>
+        <div class="stat-card c-warn">
+          <div class="stat-icon">📁</div>
+          <div class="stat-label">Proyectos publicados</div>
+          <div class="stat-value" id="s-proyectos">—</div>
+        </div>
+        <div class="stat-card c-danger">
+          <div class="stat-icon">🏢</div>
+          <div class="stat-label">Empresas vinculadas</div>
+          <div class="stat-value" id="s-empresas">—</div>
+        </div>
+      </div>
+
+      <div class="two-col">
+
+        <!-- Reporte de postulaciones -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Postulaciones por estado</span>
+          </div>
+          <div class="card-body">
+            <div id="chart-post" style="display:flex;flex-direction:column;gap:10px">
+              <div class="spinner"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reporte de proyectos -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Proyectos por estado</span>
+          </div>
+          <div class="card-body">
+            <div id="chart-proy" style="display:flex;flex-direction:column;gap:10px">
+              <div class="spinner"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Tabla de alumnos con proyecto activo -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Alumnos con residencia activa</span>
+          <button class="btn btn-sm btn-secondary" onclick="exportarCSV()">
+            📥 Exportar CSV
+          </button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Alumno</th>
+                <th>Matrícula</th>
+                <th>Carrera</th>
+                <th>Proyecto</th>
+                <th>Empresa</th>
+                <th>Asesor</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-reporte">
+              <tr class="loading-row">
+                <td colspan="7"><div class="spinner"></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api/client.js"></script>
+<script src="../js/components/sidebar.js"></script>
+<script>
+  checkAuth(['admin']);
+  renderSidebar('reportes-sistema.html');
+
+  let _datosReporte = [];
+
+  async function cargarReportes() {
+    try {
+      const [alumnos, asesores, proyectos] = await Promise.all([
+        usuariosApi.listar('alumno'),
+        usuariosApi.listar('asesor'),
+        proyectosApi.listar(),
+      ]);
+
+      // Stats
+      document.getElementById('s-alumnos').textContent  = alumnos.length;
+      document.getElementById('s-asesores').textContent = asesores.length;
+      document.getElementById('s-proyectos').textContent =
+        proyectos.filter(p => p.estado === 'publicado').length;
+      document.getElementById('s-empresas').textContent =
+        new Set(proyectos.map(p => p.empresa)).size;
+
+      // Gráfica de proyectos
+      const estadosProy = ['publicado','revision','cerrado','despublicado'];
+      const colorProy   = ['badge-green','badge-amber','badge-gray','badge-red'];
+      document.getElementById('chart-proy').innerHTML = estadosProy.map((est, i) => {
+        const n   = proyectos.filter(p => p.estado === est).length;
+        const pct = proyectos.length ? Math.round(n / proyectos.length * 100) : 0;
+        return `
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+              <span>${badgeEstado(est)}</span>
+              <span class="text-muted">${n} (${pct}%)</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width:${pct}%;background:${
+                i===0?'var(--accent)':i===1?'var(--warn)':'var(--muted)'}"></div>
+            </div>
+          </div>`;
+      }).join('');
+
+      // Tabla de alumnos con residencia aceptada
+      let filas = [];
+      for (const p of proyectos.filter(p => p.estado === 'publicado')) {
+        const posts = await postulacionesApi.porProyecto(p.id_proyecto);
+        const acept = posts.filter(po => po.estado === 'aceptada');
+        filas = filas.concat(acept.map(po => ({
+          alumno:    po.alumno,
+          matricula: po.matricula,
+          carrera:   po.carrera,
+          proyecto:  p.nombre,
+          empresa:   p.empresa,
+          asesor:    p.asesor || '—',
+          estado:    po.estado,
+        })));
+      }
+      _datosReporte = filas;
+
+      // Gráfica de postulaciones
+      let todasPost = [];
+      for (const p of proyectos) {
+        const posts = await postulacionesApi.porProyecto(p.id_proyecto);
+        todasPost = todasPost.concat(posts);
+      }
+      const estPost  = ['pendiente','aceptada','rechazada'];
+      document.getElementById('chart-post').innerHTML = estPost.map(est => {
+        const n   = todasPost.filter(p => p.estado === est).length;
+        const pct = todasPost.length ? Math.round(n / todasPost.length * 100) : 0;
+        return `
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+              <span>${badgeEstado(est)}</span>
+              <span class="text-muted">${n} (${pct}%)</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width:${pct}%;background:${
+                est==='aceptada'?'var(--accent)':est==='pendiente'?'var(--warn)':'var(--danger)'}"></div>
+            </div>
+          </div>`;
+      }).join('');
+
+      document.getElementById('n-total') && null;
+
+      if (!filas.length) {
+        tablaEmpty('tbody-reporte', 'Sin alumnos en residencia activa.', 7);
+        return;
+      }
+      document.getElementById('tbody-reporte').innerHTML = filas.map(f => `
+        <tr>
+          <td>
+            <div class="avatar-row">
+              <div class="avatar">${iniciales(f.alumno || '?')}</div>
+              <div class="td-name">${f.alumno || '—'}</div>
+            </div>
+          </td>
+          <td class="text-sm text-muted">${f.matricula}</td>
+          <td class="text-sm text-muted">${f.carrera || '—'}</td>
+          <td class="td-name" style="font-weight:500">${f.proyecto}</td>
+          <td class="text-sm text-muted">${f.empresa}</td>
+          <td class="text-sm">${f.asesor}</td>
+          <td>${badgeEstado(f.estado)}</td>
+        </tr>
+      `).join('');
+
+    } catch (err) {
+      toast(err.message, 'error');
+      tablaEmpty('tbody-reporte', `Error: ${err.message}`, 7);
+    }
+  }
+
+  // ── Exportar CSV ─────────────────────────────────────────────
+  function exportarCSV() {
+    if (!_datosReporte.length) return toast('No hay datos para exportar.', 'warn');
+    const encabezado = ['Alumno','Matrícula','Carrera','Proyecto','Empresa','Asesor','Estado'];
+    const filas = _datosReporte.map(f =>
+      [f.alumno, f.matricula, f.carrera, f.proyecto, f.empresa, f.asesor, f.estado]
+        .map(v => `"${(v||'').replace(/"/g,'""')}"`)
+        .join(',')
+    );
+    const csv  = [encabezado.join(','), ...filas].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `SIGERP_reporte_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Reporte exportado correctamente.');
+  }
+
+  cargarReportes();
+</script>
+</body>
+</html>
