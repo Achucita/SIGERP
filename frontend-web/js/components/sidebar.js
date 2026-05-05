@@ -12,11 +12,14 @@ function renderSidebar(paginaActiva = '') {
       { href: 'usuarios.html',        icon: '👥', label: 'Usuarios' },
       { href: 'proyectos.html',       icon: '📁', label: 'Proyectos' },
       { href: 'anteproyectos.html',   icon: '📝', label: 'Anteproyectos' },
-      { href: 'postulaciones.html',   icon: '📋', label: 'Postulaciones' },
-      { href: 'perfil.html', icon: '👤', label: 'Mi perfil' },
+      { href: 'perfil.html',          icon: '👤', label: 'Mi perfil' },
     ]},
-    { seccion: 'Reportes', items: [
-      { href: 'reportes-sistema.html', icon: '📊', label: 'Reportes del sistema' },
+    { seccion: 'Gestión', items: [
+      { href: 'admin-reportes.html',   icon: '📊', label: 'Reportes' },
+      { href: 'admin-expedientes.html', icon: '🗂️', label: 'Expedientes' },
+    ]},
+    { seccion: 'Sistema', items: [
+      { href: 'reportes-sistema.html', icon: '📈', label: 'Reportes del sistema' },
     ]},
   ];
 

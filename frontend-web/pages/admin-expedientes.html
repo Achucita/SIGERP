@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGERP — Expedientes</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <style>
+    #vista-lista   { display: block; }
+    #vista-detalle { display: none; }
+
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      margin-bottom: 20px;
+      transition: color .15s;
+    }
+    .back-btn:hover { color: var(--text); }
+
+    .perfil-banner {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow);
+      flex-wrap: wrap;
+    }
+    .perfil-avatar {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      background: var(--teal);
+      color: #fff;
+      font-size: 20px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .perfil-datos { flex: 1; min-width: 200px; }
+    .perfil-nombre {
+      font-family: 'Syne', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .perfil-meta {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .perfil-stats { display: flex; gap: 12px; flex-shrink: 0; flex-wrap: wrap; }
+    .mini-stat {
+      text-align: center;
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 10px 16px;
+      min-width: 64px;
+    }
+    .mini-stat-val { font-size: 22px; font-weight: 700; color: var(--text); }
+    .mini-stat-lbl { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    .exp-tabs {
+      display: flex;
+      gap: 4px;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .exp-tab {
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: all .15s;
+    }
+    .exp-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
+
+    .exp-panel { display: none; }
+    .exp-panel.active { display: block; }
+
+    .archivo-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .archivo-row:last-child { border-bottom: none; }
+    .archivo-icon { font-size: 22px; flex-shrink: 0; }
+    .archivo-info { flex: 1; }
+    .archivo-nombre { font-size: 13px; font-weight: 600; color: var(--text); }
+    .archivo-meta   { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .empty-panel {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .alumno-avatar-sm {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--teal);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .td-alumno { display: flex; align-items: center; gap: 10px; }
+  </style>
+</head>
+<body>
+
+<div class="app-layout">
+  <nav class="sidebar" id="sidebar"></nav>
+
+  <div class="app-main">
+    <header class="topbar">
+      <div class="topbar-title" id="topbar-titulo">Expedientes</div>
+      <div class="topbar-actions">
+        <div class="search-box" id="search-wrap">
+          <span>🔍</span>
+          <input type="text" id="buscar-input" placeholder="Buscar alumno o matrícula…">
+        </div>
+      </div>
+    </header>
+
+    <main class="app-content">
+
+      <!-- ══ LISTA ══ -->
+      <div id="vista-lista">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Alumnos en residencias</span>
+            <span id="total-label" style="font-size:12px;color:var(--muted)"></span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Alumno</th>
+                  <th>Matrícula</th>
+                  <th>Carrera</th>
+                  <th>Empresa / Proyecto</th>
+                  <th style="text-align:center">Docs</th>
+                  <th style="text-align:center">Reportes</th>
+                  <th style="text-align:center">Evidencias</th>
+                  <th style="text-align:center">Antepr.</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tbody-alumnos">
+                <tr class="loading-row"><td colspan="9"><div class="spinner"></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ DETALLE ══ -->
+      <div id="vista-detalle">
+        <button class="back-btn" onclick="volverLista()">← Volver a la lista</button>
+
+        <div class="perfil-banner">
+          <div class="perfil-avatar" id="det-avatar">—</div>
+          <div class="perfil-datos">
+            <div class="perfil-nombre" id="det-nombre">—</div>
+            <div class="perfil-meta"  id="det-meta"></div>
+          </div>
+          <div class="perfil-stats" id="det-stats"></div>
+        </div>
+
+        <div class="exp-tabs">
+          <button class="exp-tab active" data-panel="panel-docs">📄 Documentos</button>
+          <button class="exp-tab" data-panel="panel-reportes">📊 Reportes</button>
+          <button class="exp-tab" data-panel="panel-evidencias">🖼️ Evidencias</button>
+          <button class="exp-tab" data-panel="panel-antep">📝 Anteproyecto</button>
+        </div>
+
+        <!-- Documentos -->
+        <div class="exp-panel active" id="panel-docs">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Documentos</span></div>
+            <div class="card-body" id="docs-body">
+              <div class="empty-panel">Cargando…</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reportes -->
+        <div class="exp-panel" id="panel-reportes">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Reportes enviados</span></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Reporte</th>
+                    <th>Periodo</th>
+                    <th>Estado</th>
+                    <th>Fecha envío</th>
+                    <th>Comentario admin</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="reportes-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Evidencias -->
+        <div class="exp-panel" id="panel-evidencias">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Evidencias</span></div>
+            <div class="card-body" id="evidencias-body">
+              <div class="empty-panel">Cargando…</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Anteproyecto -->
+        <div class="exp-panel" id="panel-antep">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Anteproyecto</span></div>
+            <div class="card-body" id="antep-body">
+              <div class="empty-panel">Cargando…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api/client.js"></script>
+<script src="../js/components/sidebar.js"></script>
+<script src="../js/components/toast.js"></script>
+<script>
+  checkAuth(['admin']);
+  renderSidebar('admin-expedientes.html');
+
+  let todosAlumnos = [];
+  let busqueda     = '';
+
+  // ── Lista ──────────────────────────────────────────────────
+  async function cargarLista() {
+    tablaLoading('tbody-alumnos', 9);
+    try {
+      const lista = await apiFetch('/expedientes');
+      todosAlumnos = Array.isArray(lista) ? lista : [];
+      document.getElementById('total-label').textContent =
+        todosAlumnos.length + ' alumno(s) en residencias';
+      renderLista();
+    } catch {
+      document.getElementById('tbody-alumnos').innerHTML =
+        '<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--muted)">Error al cargar expedientes.</td></tr>';
+    }
+  }
+
+  function renderLista() {
+    const tbody = document.getElementById('tbody-alumnos');
+    const q = busqueda.toLowerCase();
+    const lista = todosAlumnos.filter(a =>
+      !q || (a.nombre||'').toLowerCase().includes(q) || (a.matricula||'').toLowerCase().includes(q)
+    );
+
+    if (!lista.length) {
+      tbody.innerHTML =
+        '<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--muted)">Sin alumnos en residencias actualmente.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = lista.map(a => `
+      <tr style="cursor:pointer" onclick="verExpediente(${a.id_alumno})">
+        <td>
+          <div class="td-alumno">
+            <div class="alumno-avatar-sm">${iniciales(a.nombre)}</div>
+            <span>${h(a.nombre)}</span>
+          </div>
+        </td>
+        <td><code>${h(a.matricula)}</code></td>
+        <td style="font-size:12px;color:var(--muted)">${h(a.carrera)}</td>
+        <td>
+          <div style="font-size:13px;font-weight:600">${h(a.empresa)}</div>
+          <div style="font-size:11px;color:var(--muted)">${h(a.proyecto)}</div>
+        </td>
+        <td style="text-align:center">${numBadge(a.total_documentos)}</td>
+        <td style="text-align:center">${numBadge(a.total_reportes)}</td>
+        <td style="text-align:center">${numBadge(a.total_evidencias)}</td>
+        <td style="text-align:center">${numBadge(a.total_anteproyectos)}</td>
+        <td>
+          <button class="btn btn-sm btn-primary"
+            onclick="event.stopPropagation();verExpediente(${a.id_alumno})">
+            Ver →
+          </button>
+        </td>
+      </tr>`).join('');
+  }
+
+  function numBadge(n) {
+    return n > 0
+      ? '<span class="badge badge-blue">' + n + '</span>'
+      : '<span class="badge" style="background:var(--surface);color:var(--muted)">' + n + '</span>';
+  }
+
+  // ── Detalle ────────────────────────────────────────────────
+  async function verExpediente(id) {
+    // Cambiar a vista detalle
+    document.getElementById('vista-lista').style.display  = 'none';
+    document.getElementById('vista-detalle').style.display = 'block';
+    document.getElementById('search-wrap').style.display  = 'none';
+    document.getElementById('topbar-titulo').textContent  = 'Cargando…';
+    document.getElementById('det-nombre').textContent     = 'Cargando expediente…';
+    document.getElementById('det-meta').innerHTML         = '';
+    document.getElementById('det-stats').innerHTML        = '';
+
+    // Resetear tabs al primero
+    document.querySelectorAll('.exp-tab').forEach((t,i)   => t.classList.toggle('active', i===0));
+    document.querySelectorAll('.exp-panel').forEach((p,i) => p.classList.toggle('active', i===0));
+
+    try {
+      const data = await apiFetch('/expedientes/' + id);
+      // apiFetch ya devuelve data.data ?? data, pero el endpoint devuelve { alumno, documentos, … }
+      const alumno        = data.alumno        || data.data?.alumno        || {};
+      const documentos    = data.documentos    || data.data?.documentos    || [];
+      const reportes      = data.reportes      || data.data?.reportes      || [];
+      const evidencias    = data.evidencias    || data.data?.evidencias    || [];
+      const anteproyectos = data.anteproyectos || data.data?.anteproyectos || [];
+
+      // Banner
+      document.getElementById('topbar-titulo').textContent = alumno.nombre || 'Expediente';
+      document.getElementById('det-avatar').textContent    = iniciales(alumno.nombre);
+      document.getElementById('det-nombre').textContent    = alumno.nombre || '—';
+      document.getElementById('det-meta').innerHTML = [
+        alumno.matricula ? '🎓 ' + h(alumno.matricula)  : '',
+        alumno.carrera   ? '📚 ' + h(alumno.carrera)    : '',
+        alumno.empresa   ? '🏢 ' + h(alumno.empresa)    : '',
+        alumno.proyecto  ? '📁 ' + h(alumno.proyecto)   : '',
+        '👤 Asesor: ' + h(alumno.asesor || 'Sin asignar'),
+        alumno.correo    ? '✉️ ' + h(alumno.correo)     : '',
+      ].filter(Boolean).map(s => '<span>' + s + '</span>').join('');
+
+      document.getElementById('det-stats').innerHTML = `
+        <div class="mini-stat"><div class="mini-stat-val">${documentos.length}</div><div class="mini-stat-lbl">Docs</div></div>
+        <div class="mini-stat"><div class="mini-stat-val">${reportes.length}</div><div class="mini-stat-lbl">Reportes</div></div>
+        <div class="mini-stat"><div class="mini-stat-val">${evidencias.length}</div><div class="mini-stat-lbl">Evidencias</div></div>
+        <div class="mini-stat"><div class="mini-stat-val">${anteproyectos.length}</div><div class="mini-stat-lbl">Antepr.</div></div>`;
+
+      // Panel: Documentos
+      document.getElementById('docs-body').innerHTML = documentos.length
+        ? documentos.map(d => `
+          <div class="archivo-row">
+            <div class="archivo-icon">📄</div>
+            <div class="archivo-info">
+              <div class="archivo-nombre">${h(d.nombre)}</div>
+              <div class="archivo-meta">Subido el ${fmtFecha(d.fecha_subida)}</div>
+            </div>
+            <a href="${h(d.ruta_archivo)}" target="_blank" class="btn btn-sm btn-secondary">Ver</a>
+          </div>`).join('')
+        : '<div class="empty-panel">Sin documentos registrados.</div>';
+
+      // Panel: Reportes
+      document.getElementById('reportes-body').innerHTML = reportes.length
+        ? reportes.map(r => `
+          <tr>
+            <td><span class="badge badge-blue">Reporte ${r.numero_reporte}</span></td>
+            <td style="font-size:12px;color:var(--muted)">${h(r.periodo_cubre)}</td>
+            <td>${badgeEstado(r.estado)}</td>
+            <td style="font-size:12px;color:var(--muted)">${fmtFecha(r.fecha_envio)}</td>
+            <td style="font-size:12px;color:var(--muted);max-width:200px">${h(r.comentario_admin || r.comentarios_adicionales || '—')}</td>
+            <td><a href="${h(r.ruta_archivo)}" target="_blank" class="btn btn-sm btn-secondary">📄 PDF</a></td>
+          </tr>`).join('')
+        : '<tr><td colspan="6" class="empty-panel">Sin reportes enviados.</td></tr>';
+
+      // Panel: Evidencias
+      document.getElementById('evidencias-body').innerHTML = evidencias.length
+        ? evidencias.map(ev => `
+          <div class="archivo-row">
+            <div class="archivo-icon">🖼️</div>
+            <div class="archivo-info">
+              <div class="archivo-nombre">${h(ev.descripcion || 'Evidencia')}</div>
+              <div class="archivo-meta">
+                Enviada el ${fmtFecha(ev.fecha_envio)}
+                ${ev.comentario_asesor ? ' · 💬 ' + h(ev.comentario_asesor) : ''}
+              </div>
+            </div>
+            <a href="${h(ev.ruta_archivo)}" target="_blank" class="btn btn-sm btn-secondary">Ver</a>
+          </div>`).join('')
+        : '<div class="empty-panel">Sin evidencias registradas.</div>';
+
+      // Panel: Anteproyecto
+      document.getElementById('antep-body').innerHTML = anteproyectos.length
+        ? anteproyectos.map(ant => `
+          <div class="archivo-row">
+            <div class="archivo-icon">📝</div>
+            <div class="archivo-info">
+              <div class="archivo-nombre">${h(ant.titulo)}</div>
+              <div class="archivo-meta" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px">
+                ${badgeEstado(ant.estado)}
+                <span>Enviado: ${fmtFecha(ant.fecha_envio)}</span>
+                ${ant.comentario_admin ? '<span>💬 ' + h(ant.comentario_admin) + '</span>' : ''}
+              </div>
+              ${ant.descripcion ? '<div style="font-size:12px;color:var(--muted);margin-top:6px">' + h(ant.descripcion) + '</div>' : ''}
+            </div>
+            <a href="${h(ant.ruta_archivo)}" target="_blank" class="btn btn-sm btn-secondary">📄 PDF</a>
+          </div>`).join('')
+        : '<div class="empty-panel">Sin anteproyecto registrado.</div>';
+
+    } catch (e) {
+      document.getElementById('det-nombre').textContent = 'Error al cargar';
+      document.getElementById('topbar-titulo').textContent = 'Expediente';
+      toast('Error al cargar el expediente', 'error');
+    }
+  }
+
+  function volverLista() {
+    document.getElementById('vista-lista').style.display   = 'block';
+    document.getElementById('vista-detalle').style.display = 'none';
+    document.getElementById('search-wrap').style.display   = '';
+    document.getElementById('topbar-titulo').textContent   = 'Expedientes';
+  }
+
+  // ── Tabs ──────────────────────────────────────────────────
+  document.querySelectorAll('.exp-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.exp-tab').forEach(t   => t.classList.remove('active'));
+      document.querySelectorAll('.exp-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.panel)?.classList.add('active');
+    });
+  });
+
+  // ── Búsqueda ──────────────────────────────────────────────
+  document.getElementById('buscar-input').addEventListener('input', e => {
+    busqueda = e.target.value;
+    renderLista();
+  });
+
+  // ── Helpers ───────────────────────────────────────────────
+  function h(s) {
+    return String(s ?? '')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  cargarLista();
+</script>
+</body>
+</html>

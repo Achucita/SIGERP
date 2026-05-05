@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIGERP — Registro de proyecto de Residencia Profesional</title>
+<style>
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Roboto', 'Segoe UI', sans-serif;
+  background: #F0EBF8;
+  min-height: 100vh;
+  padding-bottom: 40px;
+}
+a { color: #1a73e8; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Progress bar ── */
+.progress-wrap {
+  max-width: 640px; margin: 12px auto 0;
+  background: #e8eaed; border-radius: 2px; height: 4px;
+}
+.progress-fill {
+  background: #673AB7; height: 4px;
+  border-radius: 2px; transition: width .3s;
+}
+
+/* ── Cards ── */
+.gf-header {
+  background: white; max-width: 640px;
+  margin: 0 auto 12px;
+  padding: 24px 24px 20px;
+  border-top: 10px solid #673AB7;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.12);
+}
+.gf-header h1 {
+  font-size: 24px; font-weight: 400;
+  color: #202124; margin-bottom: 6px;
+}
+.gf-header .sub  { font-size: 14px; color: #202124; margin-bottom: 4px; }
+.gf-header .note { font-size: 13px; color: #5f6368; }
+.req-star { color: #c0392b; }
+
+.gf-card {
+  background: white; max-width: 640px;
+  margin: 0 auto 12px; padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.12);
+}
+.gf-card.section-card {
+  border-top: 4px solid #673AB7;
+}
+.section-title {
+  font-size: 16px; font-weight: 500;
+  color: #202124; margin-bottom: 4px;
+}
+.section-desc { font-size: 13px; color: #5f6368; }
+
+/* ── Fields ── */
+.field { margin-bottom: 20px; }
+.field:last-child { margin-bottom: 0; }
+.field label {
+  display: block; font-size: 14px;
+  color: #202124; margin-bottom: 10px;
+}
+.gf-input {
+  width: 100%; border: none;
+  border-bottom: 1px solid #dadce0;
+  padding: 6px 0; font-size: 14px;
+  font-family: inherit; color: #202124;
+  background: transparent; outline: none;
+  transition: border-color .2s;
+}
+.gf-input:focus { border-bottom: 2px solid #673AB7; }
+.gf-input::placeholder { color: #9aa0a6; }
+textarea.gf-input { resize: none; height: 80px; }
+
+/* ── Radio / checkbox ── */
+.opt-row {
+  display: flex; align-items: flex-start;
+  gap: 10px; margin-bottom: 10px; cursor: pointer;
+}
+.opt-row input[type=radio],
+.opt-row input[type=checkbox] {
+  width: 18px; height: 18px;
+  accent-color: #673AB7;
+  cursor: pointer; flex-shrink: 0; margin-top: 1px;
+}
+.opt-label { font-size: 14px; color: #202124; line-height: 1.4; }
+
+/* ── Terms ── */
+.terms-box {
+  border: 1px solid #dadce0; border-radius: 4px;
+  padding: 14px 16px; max-height: 200px;
+  overflow-y: auto; font-size: 12px;
+  color: #3c4043; line-height: 1.7;
+  margin-bottom: 16px; background: #fafafa;
+}
+.terms-box::-webkit-scrollbar { width: 6px; }
+.terms-box::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 3px; }
+
+/* ── Nav ── */
+.nav-row {
+  max-width: 640px; margin: 0 auto;
+  display: flex; align-items: center;
+  justify-content: space-between; padding: 8px 0;
+}
+.page-indicator { font-size: 13px; color: #5f6368; }
+.gf-btn {
+  background: #673AB7; color: white;
+  border: none; border-radius: 4px;
+  padding: 10px 24px;
+  font-size: 14px; font-weight: 500;
+  cursor: pointer; transition: background .2s;
+}
+.gf-btn:hover:not(:disabled) { background: #5e35b1; }
+.gf-btn:disabled { opacity: .6; cursor: not-allowed; }
+.gf-btn-back {
+  background: transparent; color: #673AB7;
+  border: none; padding: 10px 24px;
+  font-size: 14px; font-weight: 500; cursor: pointer;
+}
+.gf-btn-back:hover { background: rgba(103,58,183,.08); border-radius: 4px; }
+
+/* ── Footer ── */
+.gf-footer {
+  max-width: 640px; margin: 16px auto 0;
+  font-size: 12px; color: #70757a; text-align: center; line-height: 1.8;
+}
+
+/* ── Error ── */
+.field-error {
+  font-size: 12px; color: #c0392b;
+  margin-top: 4px; display: none;
+}
+
+/* ── Page visibility ── */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ── Submitted ── */
+.submitted-card {
+  background: white; border-radius: 8px;
+  max-width: 640px; margin: 24px auto;
+  padding: 40px 24px; text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,.12);
+}
+.submitted-icon { font-size: 52px; margin-bottom: 16px; }
+.submitted-h {
+  font-size: 22px; color: #202124;
+  margin-bottom: 8px; font-weight: 400;
+}
+.submitted-sub {
+  font-size: 14px; color: #5f6368; line-height: 1.7;
+}
+</style>
+</head>
+<body>
+
+<!-- Barra de progreso -->
+<div class="progress-wrap">
+  <div class="progress-fill" id="progress" style="width:16.6%"></div>
+</div>
+
+<!-- ═══════════ PÁGINA 1: TÉRMINOS ═══════════ -->
+<div class="page active" id="page-1">
+  <div class="gf-header">
+    <h1>Formulario de registro de proyectos de Residencia Profesional</h1>
+    <p class="sub">Carrera de Ingeniería en Sistemas Computacionales</p>
+    <p class="sub">Residencia Profesional para el periodo Enero – Junio 2026</p>
+    <p class="note" style="margin-top:8px">Este formulario se llena por proyecto.</p>
+    <p class="note" style="margin-top:10px">
+      <span class="req-star">*</span> Indica que la pregunta es obligatoria
+    </p>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label>Términos y Condiciones <span class="req-star">*</span></label>
+      <div class="terms-box">
+        Aviso dirigido a interesados a registrar proyectos de Residencia Profesional:
+        El Instituto Tecnológico de León, con domicilio en Av. Tecnológico s/n
+        Fraccionamiento Industrial Julián de Obregón, del municipio de León,
+        Guanajuato, Tel. (477) 710 5200, es responsable de recabar sus datos personales,
+        del uso que se le dé a los mismos y de su protección. La información personal
+        de usted, incluyendo los datos sensibles que actualmente o en el futuro obren
+        en nuestras bases de datos, serán tratados y/o utilizados bajo medidas de
+        seguridad, siempre garantizando su confidencialidad por el Instituto Tecnológico
+        de León y el Tecnológico Nacional de México. Por la naturaleza de sus funciones,
+        el Instituto Tecnológico de León tiene la necesidad de tratar y/o utilizar sus
+        datos personales con fines académicos y estadísticos, mediante la captura en
+        línea del registro de sus proyectos de Residencias Profesionales, para contar
+        entre otros: con un banco de proyectos que permita ofrecer a los alumnos opciones
+        de proyectos para que realicen su Residencia Profesional, lo anterior para
+        cumplir aquellas obligaciones que se derivan de la relación jurídica existente
+        entre el alumno y el solicitante de Residencias Profesionales como titulares
+        de los datos personales. Los titulares podrán ejercer los derechos que les
+        confiere la Ley, mediante un escrito libre que deberá ser presentado en el
+        Departamento de Gestión Tecnológica y Vinculación. El Instituto Tecnológico
+        de León se reserva el derecho de actualizar, cambiar, modificar y complementar
+        el presente aviso, en cualquier momento, en cuyo caso hará de su conocimiento
+        a través de la página web <a href="https://www.leon.tecnm.mx" target="_blank">www.leon.tecnm.mx</a>.
+        <br><br>
+        Consiento y autorizo que mis datos personales sean tratados conforme al
+        presente aviso de privacidad.
+      </div>
+      <div class="opt-row">
+        <input type="radio" name="terms" id="terms-acepto" value="acepto" />
+        <label class="opt-label" for="terms-acepto">ACEPTO</label>
+      </div>
+      <div class="field-error" id="err-terms">
+        Debes aceptar los términos y condiciones para continuar.
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-row">
+    <div class="page-indicator">Página 1 de 6</div>
+    <button class="gf-btn" onclick="irA(2)">Siguiente</button>
+  </div>
+
+  <div class="gf-footer">
+    Nunca envíes contraseñas a través de este formulario.<br>
+    Este formulario se creó en Instituto Tecnológico de León.
+  </div>
+</div>
+
+<!-- ═══════════ PÁGINA 2: DATOS DE LA EMPRESA ═══════════ -->
+<div class="page" id="page-2">
+  <div class="gf-header" style="border-top-color:#673AB7">
+    <h1>Formulario de registro de proyectos de Residencia Profesional</h1>
+    <p class="note"><span class="req-star">*</span> Indica que la pregunta es obligatoria</p>
+  </div>
+
+  <div class="gf-card section-card">
+    <div class="section-title">Datos de la Empresa / Organización</div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label for="p2-nombre">Nombre de la Empresa / Organización <span class="req-star">*</span></label>
+      <input class="gf-input" id="p2-nombre" placeholder="Ej. Tech Bajío S.A. de C.V." />
+      <div class="field-error" id="err-p2-nombre">Este campo es obligatorio.</div>
+    </div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label for="p2-giro">Giro de la Empresa / Organización <span class="req-star">*</span></label>
+      <input class="gf-input" id="p2-giro" placeholder="Ej. Desarrollo de software industrial" />
+      <div class="field-error" id="err-p2-giro">Este campo es obligatorio.</div>
+    </div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label for="p2-direccion">
+        Dirección (Calle, Número, Colonia, Ciudad) <span class="req-star">*</span>
+      </label>
+      <input class="gf-input" id="p2-direccion"
+             placeholder="Ej. Blvd. Aeropuerto 3302, Fracc. Industrial, León, Gto." />
+      <div class="field-error" id="err-p2-direccion">Este campo es obligatorio.</div>
+    </div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label for="p2-tel">Teléfono de la Empresa <span class="req-star">*</span></label>
+      <input class="gf-input" id="p2-tel" type="tel" placeholder="(477) 710-0100" />
+      <div class="field-error" id="err-p2-tel">Este campo es obligatorio.</div>
+    </div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label for="p2-correo">
+        Correo electrónico de la Empresa <span class="req-star">*</span>
+      </label>
+      <input class="gf-input" id="p2-correo" type="email"
+             placeholder="contacto@empresa.com" />
+      <div class="field-error" id="err-p2-correo">Ingresa un correo válido.</div>
+    </div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label for="p2-web">
+        Página Web (si no cuenta con una, escribir N/A)
+      </label>
+      <input class="gf-input" id="p2-web" placeholder="www.empresa.com" />
+    </div>
+  </div>
+
+  <div class="nav-row">
+    <button class="gf-btn-back" onclick="irA(1)">Atrás</button>
+    <div class="page-indicator">Página 2 de 6</div>
+    <button class="gf-btn" onclick="irA(3)">Siguiente</button>
+  </div>
+  <div class="gf-footer">Nunca envíes contraseñas a través de este formulario.</div>
+</div>
+
+<!-- ═══════════ PÁGINA 3: DATOS DEL RESPONSABLE ═══════════ -->
+<div class="page" id="page-3">
+  <div class="gf-header" style="border-top-color:#673AB7">
+    <h1>Formulario de registro de proyectos de Residencia Profesional</h1>
+    <p class="note"><span class="req-star">*</span> Indica que la pregunta es obligatoria</p>
+  </div>
+
+  <div class="gf-card section-card">
+    <div class="section-title">Datos del Responsable del Proyecto en la Empresa</div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label for="p3-nombre">Nombre completo del Responsable <span class="req-star">*</span></label>
+      <input class="gf-input" id="p3-nombre" placeholder="Ej. Juan López Ortega" />
+      <div class="field-error" id="err-p3-nombre">Este campo es obligatorio.</div>
+    </div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label for="p3-cargo">Cargo / Puesto del Responsable <span class="req-star">*</span></label>
+      <input class="gf-input" id="p3-cargo" placeholder="Ej. Gerente de Recursos Humanos" />
+      <div class="field-error" id="err-p3-cargo">Este campo es obligatorio.</div>
+    </div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label for="p3-tel">Teléfono del Responsable <span class="req-star">*</span></label>
+      <input class="gf-input" id="p3-tel" type="tel" placeholder="(477) 710-0101" />
+      <div class="field-error" id="err-p3-tel">Este campo es obligatorio.</div>
+    </div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label for="p3-correo">
+        Correo electrónico del Responsable <span class="req-star">*</span>
+      </label>
+      <input class="gf-input" id="p3-correo" type="email"
+             placeholder="responsable@empresa.com" />
+      <div class="field-error" id="err-p3-correo">Ingresa un correo válido.</div>
+    </div>
+  </div>
+
+  <div class="nav-row">
+    <button class="gf-btn-back" onclick="irA(2)">Atrás</button>
+    <div class="page-indicator">Página 3 de 6</div>
+    <button class="gf-btn" onclick="irA(4)">Siguiente</button>
+  </div>
+  <div class="gf-footer">Nunca envíes contraseñas a través de este formulario.</div>
+</div>
+
+<!-- ═══════════ PÁGINA 4: DATOS DEL PROYECTO ═══════════ -->
+<div class="page" id="page-4">
+  <div class="gf-header" style="border-top-color:#673AB7">
+    <h1>Formulario de registro de proyectos de Residencia Profesional</h1>
+    <p class="note"><span class="req-star">*</span> Indica que la pregunta es obligatoria</p>
+  </div>
+
+  <div class="gf-card section-card">
+    <div class="section-title">Datos del Proyecto</div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label for="p4-nombre">Nombre del Proyecto <span class="req-star">*</span></label>
+      <input class="gf-input" id="p4-nombre"
+             placeholder="Ej. Sistema de monitoreo IoT para industria" />
+      <div class="field-error" id="err-p4-nombre">Este campo es obligatorio.</div>
+    </div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label>Área del Proyecto <span class="req-star">*</span></label>
+      <div class="opt-row">
+        <input type="radio" name="area" id="area-1" value="Desarrollo de Software" />
+        <label class="opt-label" for="area-1">Desarrollo de Software</label>
+      </div>
+      <div class="opt-row">
+        <input type="radio" name="area" id="area-2" value="Redes y Telecomunicaciones" />
+        <label class="opt-label" for="area-2">Redes y Telecomunicaciones</label>
+      </div>
+      <div class="opt-row">
+        <input type="radio" name="area" id="area-3" value="Base de Datos" />
+        <label class="opt-label" for="area-3">Base de Datos</label>
+      </div>
+      <div class="opt-row">
+        <input type="radio" name="area" id="area-4" value="Inteligencia Artificial / Ciencia de Datos" />
+        <label class="opt-label" for="area-4">Inteligencia Artificial / Ciencia de Datos</label>
+      </div>
+      <div class="opt-row">
+        <input type="radio" name="area" id="area-5" value="Administración de Proyectos de TI" />
+        <label class="opt-label" for="area-5">Administración de Proyectos de TI</label>
+      </div>
+      <div class="opt-row">
+        <input type="radio" name="area" id="area-6" value="Seguridad Informática" />
+        <label class="opt-label" for="area-6">Seguridad Informática</label>
+      </div>
+      <div class="opt-row">
+        <input type="radio" name="area" id="area-7" value="Otro" />
+        <label class="opt-label" for="area-7">Otro</label>
+      </div>
+      <div class="field-error" id="err-area">Selecciona un área.</div>
+    </div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label for="p4-desc">
+        Descripción del Proyecto (objetivo general, actividades a desarrollar)
+        <span class="req-star">*</span>
+      </label>
+      <textarea class="gf-input" id="p4-desc"
+                placeholder="Describe el objetivo principal y las actividades que realizará el alumno…"></textarea>
+      <div class="field-error" id="err-p4-desc">Este campo es obligatorio.</div>
+    </div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label>Número de alumnos requeridos <span class="req-star">*</span></label>
+      <div class="opt-row">
+        <input type="radio" name="nalumnos" id="n1" value="1" />
+        <label class="opt-label" for="n1">1</label>
+      </div>
+      <div class="opt-row">
+        <input type="radio" name="nalumnos" id="n2" value="2" />
+        <label class="opt-label" for="n2">2</label>
+      </div>
+      <div class="opt-row">
+        <input type="radio" name="nalumnos" id="n3" value="3" />
+        <label class="opt-label" for="n3">3</label>
+      </div>
+      <div class="opt-row">
+        <input type="radio" name="nalumnos" id="n4" value="4" />
+        <label class="opt-label" for="n4">Más de 3</label>
+      </div>
+      <div class="field-error" id="err-nalumnos">Selecciona el número de alumnos.</div>
+    </div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label>Modalidad de trabajo <span class="req-star">*</span></label>
+      <div class="opt-row">
+        <input type="radio" name="modalidad" id="m1" value="presencial" />
+        <label class="opt-label" for="m1">Presencial</label>
+      </div>
+      <div class="opt-row">
+        <input type="radio" name="modalidad" id="m2" value="remoto" />
+        <label class="opt-label" for="m2">Remoto / En línea</label>
+      </div>
+      <div class="opt-row">
+        <input type="radio" name="modalidad" id="m3" value="hibrido" />
+        <label class="opt-label" for="m3">Híbrido</label>
+      </div>
+      <div class="field-error" id="err-modalidad">Selecciona una modalidad.</div>
+    </div>
+  </div>
+
+  <div class="nav-row">
+    <button class="gf-btn-back" onclick="irA(3)">Atrás</button>
+    <div class="page-indicator">Página 4 de 6</div>
+    <button class="gf-btn" onclick="irA(5)">Siguiente</button>
+  </div>
+  <div class="gf-footer">Nunca envíes contraseñas a través de este formulario.</div>
+</div>
+
+<!-- ═══════════ PÁGINA 5: PERFIL DEL ALUMNO ═══════════ -->
+<div class="page" id="page-5">
+  <div class="gf-header" style="border-top-color:#673AB7">
+    <h1>Formulario de registro de proyectos de Residencia Profesional</h1>
+    <p class="note"><span class="req-star">*</span> Indica que la pregunta es obligatoria</p>
+  </div>
+
+  <div class="gf-card section-card">
+    <div class="section-title">Perfil requerido del alumno</div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label for="p5-req">
+        Conocimientos técnicos requeridos (lenguajes, herramientas, tecnologías)
+        <span class="req-star">*</span>
+      </label>
+      <textarea class="gf-input" id="p5-req"
+                placeholder="Ej. Conocimientos en Flutter y Node.js. Carrera ISC o IA. Disponibilidad 6 meses."></textarea>
+      <div class="field-error" id="err-p5-req">Este campo es obligatorio.</div>
+    </div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label for="p5-extra">
+        Habilidades adicionales (trabajo en equipo, idiomas, etc.)
+      </label>
+      <textarea class="gf-input" id="p5-extra"
+                placeholder="Ej. Inglés básico, trabajo en equipo, iniciativa."></textarea>
+    </div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label>¿Se ofrece remuneración económica al alumno? <span class="req-star">*</span></label>
+      <div class="opt-row">
+        <input type="radio" name="remun" id="r1" value="Sí" />
+        <label class="opt-label" for="r1">Sí</label>
+      </div>
+      <div class="opt-row">
+        <input type="radio" name="remun" id="r2" value="No" />
+        <label class="opt-label" for="r2">No</label>
+      </div>
+      <div class="opt-row">
+        <input type="radio" name="remun" id="r3" value="A convenir" />
+        <label class="opt-label" for="r3">A convenir</label>
+      </div>
+      <div class="field-error" id="err-remun">Selecciona una opción.</div>
+    </div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label>¿Se ofrece apoyo para transportación o alimentación?</label>
+      <div class="opt-row">
+        <input type="checkbox" id="c1" value="Transporte" />
+        <label class="opt-label" for="c1">Transporte</label>
+      </div>
+      <div class="opt-row">
+        <input type="checkbox" id="c2" value="Alimentación" />
+        <label class="opt-label" for="c2">Alimentación</label>
+      </div>
+      <div class="opt-row">
+        <input type="checkbox" id="c3" value="Ninguno" />
+        <label class="opt-label" for="c3">Ninguno</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-row">
+    <button class="gf-btn-back" onclick="irA(4)">Atrás</button>
+    <div class="page-indicator">Página 5 de 6</div>
+    <button class="gf-btn" onclick="irA(6)">Siguiente</button>
+  </div>
+  <div class="gf-footer">Nunca envíes contraseñas a través de este formulario.</div>
+</div>
+
+<!-- ═══════════ PÁGINA 6: CONFIRMACIÓN ═══════════ -->
+<div class="page" id="page-6">
+  <div class="gf-header" style="border-top-color:#673AB7">
+    <h1>Formulario de registro de proyectos de Residencia Profesional</h1>
+    <p class="note"><span class="req-star">*</span> Indica que la pregunta es obligatoria</p>
+  </div>
+
+  <div class="gf-card section-card">
+    <div class="section-title">Confirmación de datos</div>
+    <p class="section-desc" style="margin-top:6px">
+      Verifica que los datos proporcionados sean correctos antes de enviar.
+      Una vez enviado, el equipo de Residencias del ITL revisará tu proyecto
+      y lo publicará para que los alumnos puedan postularse.
+    </p>
+  </div>
+
+  <!-- Resumen de lo capturado -->
+  <div class="gf-card">
+    <div style="font-size:13px;color:#5f6368;line-height:2" id="resumen">
+      <!-- llenado por JS -->
+    </div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label>
+        ¿Los datos proporcionados son correctos y completos?
+        <span class="req-star">*</span>
+      </label>
+      <div class="opt-row">
+        <input type="radio" name="confirm" id="cf1" value="si" />
+        <label class="opt-label" for="cf1">Sí, confirmo que la información es correcta</label>
+      </div>
+      <div class="opt-row">
+        <input type="radio" name="confirm" id="cf2" value="no" />
+        <label class="opt-label" for="cf2">Necesito corregir algún dato</label>
+      </div>
+      <div class="field-error" id="err-confirm">Debes confirmar los datos.</div>
+    </div>
+  </div>
+
+  <div class="gf-card">
+    <div class="field">
+      <label for="p6-obs">Observaciones adicionales para el Departamento de Residencias</label>
+      <textarea class="gf-input" id="p6-obs"
+                placeholder="Cualquier información adicional que desees agregar…"></textarea>
+    </div>
+  </div>
+
+  <!-- Error de envío -->
+  <div id="send-error" style="max-width:640px;margin:0 auto 12px;display:none">
+    <div style="background:rgba(192,57,43,.08);border:1px solid rgba(192,57,43,.3);
+      border-radius:6px;padding:12px 16px;font-size:13px;color:#c0392b">
+      ⚠️ <span id="send-error-msg"></span>
+    </div>
+  </div>
+
+  <div class="nav-row">
+    <button class="gf-btn-back" onclick="irA(5)">Atrás</button>
+    <div class="page-indicator">Página 6 de 6</div>
+    <button class="gf-btn" id="btn-enviar" onclick="enviar()">Enviar</button>
+  </div>
+
+  <div class="gf-footer">
+    Nunca envíes contraseñas a través de este formulario.<br>
+    Este formulario se creó en Instituto Tecnológico de León.
+  </div>
+</div>
+
+<!-- ═══════════ ENVIADO ═══════════ -->
+<div class="page" id="page-submitted">
+  <div class="submitted-card">
+    <div class="submitted-icon">✅</div>
+    <div class="submitted-h">Tu respuesta ha sido registrada.</div>
+    <div class="submitted-sub">
+      El Departamento de Residencias Profesionales del
+      <strong>Instituto Tecnológico de León</strong>
+      revisará tu proyecto y lo publicará próximamente.<br><br>
+      Cuando un alumno se postule a tu proyecto recibirás un correo
+      automático con sus datos de contacto.<br><br>
+      <span style="color:#9aa0a6;font-size:13px">
+        ¿Dudas? Escríbenos a residencias@itl.edu.mx
+      </span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Navegación entre páginas ─────────────────────────────────
+const TOTAL = 6;
+
+function irA(n) {
+  // Validar la página actual antes de avanzar
+  const actual = paginaActual();
+  if (n > actual && !validarPagina(actual)) return;
+
+  // Si vamos a la página 6, llenar el resumen
+  if (n === 6) llenarResumen();
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + n).classList.add('active');
+  document.getElementById('progress').style.width = (n / TOTAL * 100) + '%';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function paginaActual() {
+  const activa = document.querySelector('.page.active');
+  return activa ? parseInt(activa.id.replace('page-', '')) : 1;
+}
+
+// ── Validación por página ────────────────────────────────────
+function validarPagina(n) {
+  let ok = true;
+
+  const req = (id, errId) => {
+    const el  = document.getElementById(id);
+    const err = document.getElementById(errId);
+    if (!el || !el.value.trim()) {
+      if (err) err.style.display = 'block';
+      ok = false;
+    } else {
+      if (err) err.style.display = 'none';
+    }
+  };
+
+  const reqRadio = (name, errId) => {
+    const checked = document.querySelector(`input[name="${name}"]:checked`);
+    const err     = document.getElementById(errId);
+    if (!checked) {
+      if (err) err.style.display = 'block';
+      ok = false;
+    } else {
+      if (err) err.style.display = 'none';
+    }
+  };
+
+  if (n === 1) {
+    reqRadio('terms', 'err-terms');
+  }
+  if (n === 2) {
+    req('p2-nombre',   'err-p2-nombre');
+    req('p2-giro',     'err-p2-giro');
+    req('p2-direccion','err-p2-direccion');
+    req('p2-tel',      'err-p2-tel');
+    req('p2-correo',   'err-p2-correo');
+  }
+  if (n === 3) {
+    req('p3-nombre', 'err-p3-nombre');
+    req('p3-cargo',  'err-p3-cargo');
+    req('p3-tel',    'err-p3-tel');
+    req('p3-correo', 'err-p3-correo');
+  }
+  if (n === 4) {
+    req('p4-nombre', 'err-p4-nombre');
+    req('p4-desc',   'err-p4-desc');
+    reqRadio('area',      'err-area');
+    reqRadio('nalumnos',  'err-nalumnos');
+    reqRadio('modalidad', 'err-modalidad');
+  }
+  if (n === 5) {
+    req('p5-req', 'err-p5-req');
+    reqRadio('remun', 'err-remun');
+  }
+  if (n === 6) {
+    reqRadio('confirm', 'err-confirm');
+    // Si eligió "necesito corregir", regresar
+    const sel = document.querySelector('input[name="confirm"]:checked');
+    if (sel && sel.value === 'no') {
+      irA(1);
+      return false;
+    }
+  }
+
+  return ok;
+}
+
+// ── Resumen en página 6 ──────────────────────────────────────
+function llenarResumen() {
+  const area     = document.querySelector('input[name="area"]:checked')?.nextElementSibling?.textContent || '—';
+  const modal    = document.querySelector('input[name="modalidad"]:checked')?.nextElementSibling?.textContent || '—';
+  const nalumnos = document.querySelector('input[name="nalumnos"]:checked')?.nextElementSibling?.textContent || '—';
+
+  document.getElementById('resumen').innerHTML = `
+    <div style="display:grid;grid-template-columns:160px 1fr;gap:4px">
+      <span style="font-weight:600;color:#202124">Empresa:</span>
+      <span>${val('p2-nombre')}</span>
+      <span style="font-weight:600;color:#202124">Correo empresa:</span>
+      <span>${val('p2-correo')}</span>
+      <span style="font-weight:600;color:#202124">Responsable:</span>
+      <span>${val('p3-nombre')} — ${val('p3-cargo')}</span>
+      <span style="font-weight:600;color:#202124">Correo responsable:</span>
+      <span>${val('p3-correo')}</span>
+      <span style="font-weight:600;color:#202124">Proyecto:</span>
+      <span>${val('p4-nombre')}</span>
+      <span style="font-weight:600;color:#202124">Área:</span>
+      <span>${area}</span>
+      <span style="font-weight:600;color:#202124">Modalidad:</span>
+      <span>${modal}</span>
+      <span style="font-weight:600;color:#202124">Núm. alumnos:</span>
+      <span>${nalumnos}</span>
+    </div>
+  `;
+}
+
+function val(id) {
+  return document.getElementById(id)?.value?.trim() || '—';
+}
+
+// ── Envío al backend ─────────────────────────────────────────
+async function enviar() {
+  if (!validarPagina(6)) return;
+
+  const btn = document.getElementById('btn-enviar');
+  btn.disabled    = true;
+  btn.textContent = 'Enviando…';
+  document.getElementById('send-error').style.display = 'none';
+
+  // Recopilar apoyos (checkboxes)
+  const apoyos = ['c1','c2','c3']
+    .filter(id => document.getElementById(id)?.checked)
+    .map(id => document.getElementById(id).value)
+    .join(', ') || 'Ninguno';
+
+  const remun = document.querySelector('input[name="remun"]:checked')?.value || '';
+  const area  = document.querySelector('input[name="area"]:checked')?.value || '';
+  const modal = document.querySelector('input[name="modalidad"]:checked')?.value || 'presencial';
+  const nAlum = document.querySelector('input[name="nalumnos"]:checked')?.value || '1';
+
+  // Construir requisitos completos
+  const requisitos = [
+    val('p5-req'),
+    val('p5-extra') ? `Habilidades: ${val('p5-extra')}` : '',
+    `Remuneración: ${remun}`,
+    `Apoyos: ${apoyos}`,
+  ].filter(Boolean).join(' | ');
+
+  const body = {
+    nombre:               val('p2-nombre'),
+    giro:                 val('p2-giro'),
+    direccion:            val('p2-direccion'),
+    telefono:             val('p2-tel'),
+    correoEmpresa:        val('p2-correo'),
+    paginaWeb:            val('p2-web'),
+    nombreResponsable:    val('p3-nombre'),
+    cargoResponsable:     val('p3-cargo'),
+    telefonoResponsable:  val('p3-tel'),
+    correoResponsable:    val('p3-correo'),
+    nombreProyecto:       val('p4-nombre'),
+    descripcion:          val('p4-desc'),
+    area,
+    requisitos,
+    modalidad:            modal,
+    numAlumnos:           parseInt(nAlum) || 1,
+  };
+
+  try {
+    const response = await fetch('http://localhost:3000/api/empresas/registro', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(body),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Error al enviar el formulario.');
+    }
+
+    // Mostrar pantalla de éxito
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-submitted').classList.add('active');
+    document.getElementById('progress').style.width = '100%';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  } catch (err) {
+    document.getElementById('send-error-msg').textContent = err.message;
+    document.getElementById('send-error').style.display   = 'block';
+    btn.disabled    = false;
+    btn.textContent = 'Enviar';
+  }
+}
+</script>
+</body>
+</html>

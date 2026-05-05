@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGERP — Reportes</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <style>
+    .periodos-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 4px;
+    }
+    @media (max-width: 900px) { .periodos-grid { grid-template-columns: 1fr; } }
+
+    .periodo-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      border-left: 4px solid var(--border);
+    }
+    .periodo-card.abierto    { border-left-color: #2EC4B6; }
+    .periodo-card.cerrado    { border-left-color: #6c757d; }
+    .periodo-card.proximo    { border-left-color: #f4a261; }
+
+    .periodo-titulo {
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .periodo-numero {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--teal);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .periodo-fechas {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .periodo-acciones { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+
+    .tabs-bar {
+      display: flex;
+      gap: 4px;
+      background: var(--surface);
+      border-radius: 8px;
+      padding: 4px;
+      margin-bottom: 18px;
+      width: fit-content;
+    }
+    .tab-btn {
+      padding: 6px 16px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .tab-btn.active {
+      background: var(--card);
+      color: var(--text);
+      box-shadow: 0 1px 4px rgba(0,0,0,.12);
+    }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group label { font-size: 12px; font-weight: 600; color: var(--muted); }
+    .form-group input, .form-group textarea, .form-group select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 13px;
+      color: var(--text);
+      width: 100%;
+    }
+    .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+      outline: none; border-color: var(--teal);
+    }
+  
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-layout">
+  <nav class="sidebar" id="sidebar"></nav>
+
+  <div class="app-main">
+    <header class="topbar">
+      <div class="topbar-title">Reportes</div>
+      <div class="topbar-actions">
+        <div class="search-box">
+          <span>🔍</span>
+          <input type="text" id="buscar-input" placeholder="Buscar alumno o matrícula…">
+        </div>
+      </div>
+    </header>
+
+    <main class="app-content">
+
+      <!-- Periodos -->
+      <div class="card" style="margin-bottom:28px">
+        <div class="card-header">
+          <span class="card-title">Periodos de entrega</span>
+          <span style="font-size:12px;color:var(--muted)">Configura las fechas de apertura y cierre para cada reporte</span>
+        </div>
+        <div class="card-body">
+          <div class="periodos-grid" id="periodos-grid">
+            <div class="periodo-card"><div class="periodo-titulo"><div class="periodo-numero">1</div>Cargando…</div></div>
+            <div class="periodo-card"><div class="periodo-titulo"><div class="periodo-numero">2</div>Cargando…</div></div>
+            <div class="periodo-card"><div class="periodo-titulo"><div class="periodo-numero">3</div>Cargando…</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reportes -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Reportes enviados por alumnos</span>
+        </div>
+        <div class="card-body" style="padding-bottom:0">
+          <div class="tabs-bar">
+            <button class="tab-btn active" data-estado="">Todos</button>
+            <button class="tab-btn" data-estado="enviado">Enviados</button>
+            <button class="tab-btn" data-estado="revisado">Revisados</button>
+            <button class="tab-btn" data-estado="con_observaciones">Con observaciones</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Alumno</th>
+                <th>Matrícula</th>
+                <th>Carrera</th>
+                <th>Reporte</th>
+                <th>Periodo</th>
+                <th>Estado</th>
+                <th>Fecha envío</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-reportes">
+              <tr class="loading-row"><td colspan="8"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Modal: configurar periodo -->
+<div class="modal-overlay" id="modal-periodo">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-periodo-titulo">Configurar periodo</span>
+      <button class="modal-close" onclick="closeModal('modal-periodo')">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:16px">
+      <input type="hidden" id="mp-numero">
+      <div class="form-group">
+        <label>Nombre del periodo</label>
+        <input type="text" id="mp-nombre" placeholder="Ej: Primer Reporte">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Fecha de apertura</label>
+          <input type="datetime-local" id="mp-apertura">
+        </div>
+        <div class="form-group">
+          <label>Fecha de cierre</label>
+          <input type="datetime-local" id="mp-cierre">
+        </div>
+      </div>
+      <div style="background:var(--surface);border-radius:8px;padding:12px;font-size:12px;color:var(--muted);line-height:1.6">
+        💡 Deja <strong>ambas fechas vacías</strong> para deshabilitar el periodo.<br>
+        Deja solo el <strong>cierre vacío</strong> para que permanezca abierto indefinidamente.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-periodo')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarPeriodo()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: revisar reporte -->
+<div class="modal-overlay" id="modal-revisar">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <span class="modal-title">Revisar reporte</span>
+      <button class="modal-close" onclick="closeModal('modal-revisar')">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:16px">
+      <input type="hidden" id="mr-id">
+      <input type="hidden" id="mr-alumno-id">
+      <div id="mr-info" style="background:var(--surface);border-radius:8px;padding:12px;font-size:13px;color:var(--muted)"></div>
+      <div class="form-group">
+        <label>Decisión</label>
+        <select id="mr-estado">
+          <option value="revisado">✅ Revisado y aceptado</option>
+          <option value="con_observaciones">⚠️ Con observaciones</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Comentario (opcional)</label>
+        <textarea id="mr-comentario" rows="3" placeholder="Observaciones para el alumno…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-revisar')">Cancelar</button>
+      <button class="btn btn-primary" onclick="enviarRevision()">Guardar revisión</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api/client.js"></script>
+<script src="../js/components/sidebar.js"></script>
+<script src="../js/components/toast.js"></script>
+<script>
+  checkAuth(['admin']);
+  renderSidebar('admin-reportes.html');
+
+  let todosReportes = [];
+  let estadoFiltro  = '';
+  let busqueda      = '';
+
+  // ── Periodos ──────────────────────────────────────────────
+  async function cargarPeriodos() {
+    try {
+      const lista = await apiFetch('/reportes/periodos');
+      renderPeriodos(Array.isArray(lista) ? lista : []);
+    } catch (e) {
+      console.error('Error periodos', e);
+    }
+  }
+
+  function renderPeriodos(periodos) {
+    const grid   = document.getElementById('periodos-grid');
+    const nombres = ['Primer Reporte', 'Segundo Reporte', 'Tercer Reporte'];
+
+    const lista = [1, 2, 3].map(n => {
+      const p = periodos.find(x => x.numero_reporte === n);
+      return p || { numero_reporte: n, nombre: nombres[n-1], fecha_apertura: null, fecha_cierre: null, estado_periodo: 'no_habilitado' };
+    });
+
+    const badges = {
+      abierto:      '<span class="badge badge-green">Abierto</span>',
+      cerrado:      '<span class="badge badge-gray">Cerrado</span>',
+      proximo:      '<span class="badge badge-amber">Próximo</span>',
+      no_habilitado:'<span class="badge" style="background:var(--surface);color:var(--muted)">Sin habilitar</span>',
+    };
+
+    grid.innerHTML = lista.map(p => {
+      const est = p.estado_periodo || 'no_habilitado';
+      const nombre = h(p.nombre || 'Reporte ' + p.numero_reporte);
+      const apertura = h(p.fecha_apertura || '');
+      const cierre   = h(p.fecha_cierre   || '');
+
+      let accion2 = '';
+      if (est === 'abierto')
+        accion2 = `<button class="btn btn-sm btn-secondary" onclick="cerrarRapido(${p.numero_reporte},'${nombre}','${apertura}')">🔒 Cerrar ahora</button>`;
+      else if (est === 'no_habilitado' || est === 'cerrado')
+        accion2 = `<button class="btn btn-sm btn-secondary" onclick="abrirRapido(${p.numero_reporte},'${nombre}')">🔓 Abrir ahora</button>`;
+
+      return `
+        <div class="periodo-card ${est}">
+          <div class="periodo-titulo">
+            <div class="periodo-numero">${p.numero_reporte}</div>
+            <span>${nombre}</span>
+          </div>
+          ${badges[est] || ''}
+          <div class="periodo-fechas">
+            <span>🟢 Apertura: <strong>${p.fecha_apertura ? fmtFecha(p.fecha_apertura) : '—'}</strong></span>
+            <span>🔴 Cierre: <strong>${p.fecha_cierre ? fmtFecha(p.fecha_cierre) : '—'}</strong></span>
+          </div>
+          <div class="periodo-acciones">
+            <button class="btn btn-sm btn-primary"
+              onclick="editarPeriodo(${p.numero_reporte},'${nombre}','${apertura}','${cierre}')">
+              ✏️ Configurar
+            </button>
+            ${accion2}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function editarPeriodo(numero, nombre, apertura, cierre) {
+    document.getElementById('mp-numero').value   = numero;
+    document.getElementById('mp-nombre').value   = nombre;
+    document.getElementById('mp-apertura').value = apertura ? toLocal(apertura) : '';
+    document.getElementById('mp-cierre').value   = cierre   ? toLocal(cierre)   : '';
+    document.getElementById('modal-periodo-titulo').textContent = 'Configurar Periodo ' + numero;
+    openModal('modal-periodo');
+  }
+
+  async function abrirRapido(numero, nombre) {
+    await savePeriodo({ numero_reporte: numero, nombre, fecha_apertura: new Date().toISOString(), fecha_cierre: null });
+  }
+
+  async function cerrarRapido(numero, nombre, apertura) {
+    await savePeriodo({ numero_reporte: numero, nombre, fecha_apertura: apertura || null, fecha_cierre: new Date().toISOString() });
+  }
+
+  async function guardarPeriodo() {
+    const payload = {
+      numero_reporte: parseInt(document.getElementById('mp-numero').value),
+      nombre:         document.getElementById('mp-nombre').value.trim() || ('Reporte ' + document.getElementById('mp-numero').value),
+      fecha_apertura: document.getElementById('mp-apertura').value || null,
+      fecha_cierre:   document.getElementById('mp-cierre').value   || null,
+    };
+    closeModal('modal-periodo');
+    await savePeriodo(payload);
+  }
+
+  async function savePeriodo(payload) {
+    try {
+      await apiFetch('/reportes/periodos', { method: 'PUT', body: JSON.stringify(payload) });
+      toast('Periodo actualizado');
+      cargarPeriodos();
+    } catch (e) {
+      toast(e.message || 'Error al actualizar periodo', 'error');
+    }
+  }
+
+  // ── Reportes ──────────────────────────────────────────────
+  async function cargarReportes() {
+    tablaLoading('tbody-reportes', 8);
+    try {
+      const params = estadoFiltro ? '?estado=' + estadoFiltro : '';
+      const lista  = await apiFetch('/reportes' + params);
+      todosReportes = Array.isArray(lista) ? lista : [];
+      renderReportes();
+    } catch {
+      document.getElementById('tbody-reportes').innerHTML =
+        '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted)">Error al cargar reportes.</td></tr>';
+    }
+  }
+
+  function renderReportes() {
+    const tbody = document.getElementById('tbody-reportes');
+    const q     = busqueda.toLowerCase();
+    const lista = todosReportes.filter(r =>
+      !q || (r.alumno || '').toLowerCase().includes(q) || (r.matricula || '').toLowerCase().includes(q)
+    );
+
+    if (!lista.length) {
+      tablaEmpty('tbody-reportes', 'Sin reportes para mostrar.', 8);
+      return;
+    }
+
+    tbody.innerHTML = lista.map(r => `
+      <tr>
+        <td>${h(r.alumno)}</td>
+        <td><code>${h(r.matricula)}</code></td>
+        <td style="color:var(--muted);font-size:12px">${h(r.carrera)}</td>
+        <td><span class="badge badge-blue">Reporte ${r.numero_reporte}</span></td>
+        <td style="font-size:12px;color:var(--muted)">${h(r.periodo_cubre)}</td>
+        <td>${badgeEstado(r.estado)}</td>
+        <td style="font-size:12px;color:var(--muted)">${fmtFecha(r.fecha_envio)}</td>
+        <td>
+          <div style="display:flex;gap:6px">
+            <a href="${h(r.ruta_archivo)}" target="_blank" class="btn btn-sm btn-secondary">📄 Ver</a>
+            ${r.estado === 'enviado'
+              ? `<button class="btn btn-sm btn-primary" onclick="abrirRevision(${r.id_reporte},'${h(r.alumno)}',${r.id_alumno},${r.numero_reporte})">Revisar</button>`
+              : ''}
+          </div>
+        </td>
+      </tr>`).join('');
+  }
+
+  function abrirRevision(id, alumno, idAlumno, numReporte) {
+    document.getElementById('mr-id').value        = id;
+    document.getElementById('mr-alumno-id').value = idAlumno;
+    document.getElementById('mr-comentario').value = '';
+    document.getElementById('mr-estado').value    = 'revisado';
+    document.getElementById('mr-info').innerHTML  = '<strong>' + h(alumno) + '</strong> — Reporte ' + numReporte;
+    openModal('modal-revisar');
+  }
+
+  async function enviarRevision() {
+    const id       = document.getElementById('mr-id').value;
+    const idAlumno = document.getElementById('mr-alumno-id').value;
+    const estado   = document.getElementById('mr-estado').value;
+    const comentario = document.getElementById('mr-comentario').value.trim();
+    try {
+      await apiFetch('/reportes/' + id, {
+        method: 'PUT',
+        body: JSON.stringify({ estado, comentario, idAlumno: parseInt(idAlumno) }),
+      });
+      closeModal('modal-revisar');
+      toast('Revisión guardada');
+      cargarReportes();
+    } catch (e) {
+      toast(e.message || 'Error al guardar revisión', 'error');
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────
+  function h(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function toLocal(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const p = n => String(n).padStart(2,'0');
+    return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());
+  }
+
+  // ── Tabs ──────────────────────────────────────────────────
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      estadoFiltro = btn.dataset.estado;
+      cargarReportes();
+    });
+  });
+
+  document.getElementById('buscar-input').addEventListener('input', e => {
+    busqueda = e.target.value;
+    renderReportes();
+  });
+
+  cargarPeriodos();
+  cargarReportes();
+</script>
+</body>
+</html>

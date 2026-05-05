@@ -1,24 +1,28 @@
+// src/routes/reporte.routes.js
 const router = require('express').Router();
 const ctrl   = require('../controllers/reporte.controller');
 const auth   = require('../middlewares/auth');
 const roles  = require('../middlewares/roles');
 const multer = require('multer');
 const path   = require('path');
-const fs     = require('fs');
- 
-const uploadDir = path.join(__dirname, '../../uploads/reportes');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
- 
+
 const storage = multer.diskStorage({
-  destination: uploadDir,
-  filename: (req, file, cb) =>
-    cb(null, `rep_${req.usuario.id}_${Date.now()}${path.extname(file.originalname)}`),
+  destination: (req, file, cb) => cb(null, 'uploads/reportes/'),
+  filename:    (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `rep_${req.usuario?.id}_${Date.now()}${ext}`);
+  },
 });
-const upload = multer({ storage });
- 
-router.post('/',               auth, roles('alumno'), upload.single('archivo'), ctrl.subir);
-router.get('/mis',             auth, roles('alumno'), ctrl.misReportes);
-router.get('/proyecto/:id',    auth, roles('asesor', 'admin'), ctrl.porProyecto);
-router.put('/:id/comentar',    auth, roles('asesor'), ctrl.comentar);
- 
+const upload = multer({ storage, limits: { fileSize: 15 * 1024 * 1024 } });
+
+// Alumno
+router.post('/',              auth, roles('alumno'), upload.single('archivo'), ctrl.subir);
+router.get('/mis',            auth, roles('alumno'), ctrl.misReportes);
+router.get('/periodos',       auth, ctrl.periodos);           // alumno y admin ven fechas
+
+// Admin
+router.get('/',               auth, roles('admin'), ctrl.listar);
+router.put('/:id',            auth, roles('admin'), ctrl.revisar);
+router.put('/periodos',       auth, roles('admin'), ctrl.actualizarPeriodo);
+
 module.exports = router;
