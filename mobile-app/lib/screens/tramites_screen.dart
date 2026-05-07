@@ -163,8 +163,6 @@ class _AnteproyectoTabState extends State<AnteproyectoTab> {
   final _descCtrl   = TextEditingController();
   File? _archivo; String? _nombreArchivo;
   bool _subiendo = false;
-  List<dynamic> _postulaciones = [];
-  int? _idPost;
   Map<String, dynamic>? _antep;
   bool _loading = true;
 
@@ -174,24 +172,10 @@ class _AnteproyectoTabState extends State<AnteproyectoTab> {
   Future<void> _cargar() async {
     setState(() => _loading = true);
     try {
-      final res = await ApiService.getMisPostulaciones();
-      if (res['ok'] == true && mounted) {
-        _postulaciones = res['data'] as List? ?? [];
-        if (_postulaciones.isNotEmpty) {
-          _idPost ??= _postulaciones.first['id_postulacion'];
-          await _cargarAntep();
-        }
-      }
+      final res = await ApiService.getMiAnteproyecto();
+      if (mounted) setState(() => _antep = res['ok'] == true ? res['data'] : null);
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
-  }
-
-  Future<void> _cargarAntep() async {
-    if (_idPost == null) return;
-    try {
-      final res = await ApiService.getMiAnteproyecto(_idPost!);
-      setState(() => _antep = res['ok'] == true ? res['data'] : null);
-    } catch (_) { setState(() => _antep = null); }
   }
 
   Future<void> _selArchivo() async {
@@ -208,8 +192,8 @@ class _AnteproyectoTabState extends State<AnteproyectoTab> {
     setState(() => _subiendo = true);
     try {
       final res = await ApiService.subirAnteproyecto(
-        idPostulacion: _idPost!, archivo: _archivo!,
-        titulo: _tituloCtrl.text.trim(),
+        archivo: _archivo!,
+        titulo:  _tituloCtrl.text.trim(),
         descripcion: _descCtrl.text.isNotEmpty ? _descCtrl.text : null,
       );
       if (mounted) {
@@ -217,10 +201,10 @@ class _AnteproyectoTabState extends State<AnteproyectoTab> {
           _snack('Anteproyecto enviado');
           setState(() { _archivo = null; _nombreArchivo = null; });
           _tituloCtrl.clear(); _descCtrl.clear();
-          await _cargarAntep();
+          await _cargar();
         } else { _snack(res['message'] ?? 'Error', error: true); }
       }
-    } catch (_) {}
+    } catch (_) { _snack('Error al enviar', error: true); }
     if (mounted) setState(() => _subiendo = false);
   }
 
@@ -231,38 +215,35 @@ class _AnteproyectoTabState extends State<AnteproyectoTab> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-    if (_postulaciones.isEmpty) return const EmptyState(
-      icon: Icons.upload_file_rounded,
-      title: 'Sin postulaciones',
-      subtitle: 'Primero postúlate a un proyecto.',
-    );
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Estado del anteproyecto actual
         if (_antep != null) ...[_AntepStatusCard(antep: _antep!), const SizedBox(height: 20)],
-        if (_postulaciones.length > 1) ...[
-          SectionLabel('Proyecto'),
-          _DropdownPost(
-            postulaciones: _postulaciones, value: _idPost,
-            onChanged: (v) { setState(() { _idPost = v; _antep = null; }); _cargarAntep(); }),
-          const SizedBox(height: 16),
-        ],
+
+        // Formulario de envío
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(color: AppColors.darkCard,
             borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.darkBorder)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(_antep != null ? 'Reenviar anteproyecto' : 'Subir anteproyecto',
+            Text(_antep != null ? 'Actualizar anteproyecto' : 'Subir anteproyecto',
               style: AppTextStyles.heading3),
+            const SizedBox(height: 8),
+            Text('Sube tu anteproyecto en PDF o Word. El administrador lo revisará.',
+              style: AppTextStyles.bodySecondary),
             const SizedBox(height: 16),
             AppTextField(label: 'Título', controller: _tituloCtrl, hint: 'Título del anteproyecto'),
             const SizedBox(height: 14),
-            AppTextField(label: 'Descripción (opcional)', controller: _descCtrl, hint: '...'),
+            AppTextField(label: 'Descripción (opcional)', controller: _descCtrl,
+              hint: 'Breve descripción del proyecto...'),
             const SizedBox(height: 14),
             _PickerArchivo(archivo: _archivo, nombre: _nombreArchivo,
               extensiones: ['pdf', 'docx'], onTap: _selArchivo),
             const SizedBox(height: 20),
-            PrimaryButton(label: 'Enviar anteproyecto', loading: _subiendo,
+            PrimaryButton(
+              label: _antep != null ? 'Actualizar y reenviar' : 'Enviar anteproyecto',
+              loading: _subiendo,
               onPressed: _archivo != null ? _subir : null),
           ]),
         ),

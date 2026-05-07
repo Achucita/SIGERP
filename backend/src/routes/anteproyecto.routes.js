@@ -15,19 +15,19 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: 15 * 1024 * 1024 } });
 
-// ── Alumno ─────────────────────────────────────────────────────────────────
-router.post('/',                        auth, roles('alumno'), upload.single('archivo'), ctrl.subir);
-router.get('/mi/:idPostulacion',        auth, roles('alumno'), ctrl.miAnteproyecto);
+// ── Alumno ──────────────────────────────────────────────────────────────────
+router.post('/',    auth, roles('alumno'), upload.single('archivo'), ctrl.subir);
+router.get('/mi',   auth, roles('alumno'), ctrl.miAnteproyecto);          // sin id_postulacion
 
-// ── Admin ──────────────────────────────────────────────────────────────────
-router.get('/',                         auth, roles('admin'), ctrl.listar);
-router.get('/pendientes',               auth, roles('admin'), ctrl.pendientes);
-router.get('/:id',                      auth, roles('admin', 'asesor'), ctrl.verPorId);
-router.get('/postulacion/:idPostulacion', auth, roles('admin', 'asesor'), ctrl.verPorPostulacion);
-router.put('/:id/revisar',              auth, roles('admin'), ctrl.revisar);
+// ── Admin ───────────────────────────────────────────────────────────────────
+router.get('/',                            auth, roles('admin'),          ctrl.listar);
+router.get('/pendientes',                  auth, roles('admin'),          ctrl.pendientes);
+router.get('/:id',                         auth, roles('admin', 'asesor'), ctrl.verPorId);
+router.get('/postulacion/:idPostulacion',  auth, roles('admin', 'asesor'), ctrl.verPorPostulacion);
+router.put('/:id/revisar',                 auth, roles('admin'),          ctrl.revisar);
 
-// ── Asesor ─────────────────────────────────────────────────────────────────
-router.get('/mis-asignados',            auth, roles('asesor'), ctrl.porAsesor);
-router.put('/:id/revisar-asesor',       auth, roles('asesor'), ctrl.revisarAsesor);
+// ── Asesor ──────────────────────────────────────────────────────────────────
+router.get('/mis-asignados',               auth, roles('asesor'),         ctrl.porAsesor);
+router.put('/:id/revisar-asesor',          auth, roles('asesor'),         ctrl.revisarAsesor);
 
 module.exports = router;

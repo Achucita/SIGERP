@@ -119,30 +119,26 @@ class ApiService {
 
   // ── Anteproyecto ──────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> subirAnteproyecto({
-    required int idPostulacion,
     required File archivo,
-    String? titulo,
+    required String titulo,
     String? descripcion,
-    String? comentarios,
   }) async {
     final token = await getToken();
     final request = http.MultipartRequest(
       'POST', Uri.parse('$baseUrl/anteproyectos'),
     );
-    request.headers['Authorization'] = 'Bearer $token';
-    request.fields['id_postulacion'] = idPostulacion.toString();
-    if (titulo != null) request.fields['titulo'] = titulo;
+    request.headers['Authorization'] = 'Bearer \$token';
+    request.fields['titulo'] = titulo;
     if (descripcion != null) request.fields['descripcion'] = descripcion;
-    if (comentarios != null) request.fields['comentarios'] = comentarios;
     request.files.add(await http.MultipartFile.fromPath('archivo', archivo.path));
     final streamed = await request.send();
     final res = await http.Response.fromStream(streamed);
     return _parse(res);
   }
 
-  static Future<Map<String, dynamic>> getMiAnteproyecto(int idPostulacion) async {
+  static Future<Map<String, dynamic>> getMiAnteproyecto() async {
     final res = await http.get(
-      Uri.parse('$baseUrl/anteproyectos/mi/$idPostulacion'),
+      Uri.parse('$baseUrl/anteproyectos/mi'),
       headers: await _headers(),
     );
     return _parse(res);

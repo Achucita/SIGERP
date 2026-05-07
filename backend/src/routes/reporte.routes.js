@@ -22,7 +22,7 @@ router.get('/periodos',       auth, ctrl.periodos);           // alumno y admin 
 
 // Admin
 router.get('/',               auth, roles('admin'), ctrl.listar);
+router.put('/periodos',       auth, roles('admin'), ctrl.actualizarPeriodo);  // <- antes que /:id
 router.put('/:id',            auth, roles('admin'), ctrl.revisar);
-router.put('/periodos',       auth, roles('admin'), ctrl.actualizarPeriodo);
 
 module.exports = router;

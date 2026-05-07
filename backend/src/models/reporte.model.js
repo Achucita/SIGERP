@@ -87,7 +87,19 @@ async function periodoHabilitado(numeroReporte) {
 
 async function listarPeriodos() {
   const pool = await getPool();
-  const res  = await pool.request().query(`
+
+  // Garantizar que los 3 registros siempre existan en la tabla
+  await pool.request().query(`
+    MERGE periodos_reporte AS target
+    USING (VALUES (1,'Primer Reporte'), (2,'Segundo Reporte'), (3,'Tercer Reporte'))
+          AS src(numero_reporte, nombre)
+      ON  target.numero_reporte = src.numero_reporte
+    WHEN NOT MATCHED THEN
+      INSERT (numero_reporte, nombre, fecha_apertura, fecha_cierre)
+      VALUES (src.numero_reporte, src.nombre, NULL, NULL);
+  `);
+
+  const res = await pool.request().query(`
     SELECT numero_reporte, nombre, fecha_apertura, fecha_cierre,
       CASE
         WHEN fecha_apertura IS NULL             THEN 'no_habilitado'
