@@ -10,6 +10,7 @@ router.post('/registro', async (req, res) => {
       nombre, giro, direccion, telefono, correoEmpresa, paginaWeb,
       nombreResponsable, cargoResponsable, telefonoResponsable, correoResponsable,
       nombreProyecto, descripcion, area, requisitos, modalidad, numAlumnos,
+      apoyoEconomico, montoApoyo,
     } = req.body;
 
     if (!nombre || !correoEmpresa || !nombreResponsable ||
@@ -50,12 +51,14 @@ router.post('/registro', async (req, res) => {
       .input('area',        sql.NVarChar, area || null)
       .input('requisitos',  sql.NVarChar, requisitos || null)
       .input('modalidad',   sql.NVarChar, modalidad)
-      .input('numAlumnos',  sql.Int,      parseInt(numAlumnos) || 1)
+      .input('numAlumnos',    sql.Int,      parseInt(numAlumnos) || 1)
+      .input('apoyoEconomico', sql.NVarChar, apoyoEconomico || null)
+      .input('montoApoyo',     sql.Decimal,  montoApoyo != null ? parseFloat(montoApoyo) : null)
       .query(`
         INSERT INTO proyectos
-          (id_empresa, nombre, descripcion, area, requisitos, modalidad, num_alumnos, estado)
+          (id_empresa, nombre, descripcion, area, requisitos, modalidad, num_alumnos, estado, apoyo_economico, monto_apoyo)
         VALUES
-          (@idEmpresa, @nombre, @descripcion, @area, @requisitos, @modalidad, @numAlumnos, 'revision')
+          (@idEmpresa, @nombre, @descripcion, @area, @requisitos, @modalidad, @numAlumnos, 'revision', @apoyoEconomico, @montoApoyo)
       `);
 
     return created(res, { idEmpresa },

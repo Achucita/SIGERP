@@ -122,14 +122,16 @@ class ApiService {
     required File archivo,
     required String titulo,
     String? descripcion,
+    String? asesoresPropuestos,
   }) async {
     final token = await getToken();
     final request = http.MultipartRequest(
       'POST', Uri.parse('$baseUrl/anteproyectos'),
     );
-    request.headers['Authorization'] = 'Bearer \$token';
+    request.headers['Authorization'] = 'Bearer $token';
     request.fields['titulo'] = titulo;
-    if (descripcion != null) request.fields['descripcion'] = descripcion;
+    if (descripcion        != null) request.fields['descripcion']         = descripcion;
+    if (asesoresPropuestos != null) request.fields['asesoresPropuestos']  = asesoresPropuestos;
     request.files.add(await http.MultipartFile.fromPath('archivo', archivo.path));
     final streamed = await request.send();
     final res = await http.Response.fromStream(streamed);
@@ -146,10 +148,12 @@ class ApiService {
 
   // ── Reportes ──────────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> subirReporte({
-    required int numeroReporte,
-    required String periodoCubre,
-    required File archivo,
-    String? comentarios,
+    required int    numeroReporte,
+    required String titulo,
+    required File   archivo,
+    String? periodoInicio,
+    String? periodoFin,
+    String? descripcion,
   }) async {
     final token = await getToken();
     final request = http.MultipartRequest(
@@ -157,8 +161,10 @@ class ApiService {
     );
     request.headers['Authorization'] = 'Bearer $token';
     request.fields['numero_reporte'] = numeroReporte.toString();
-    request.fields['periodo_cubre'] = periodoCubre;
-    if (comentarios != null) request.fields['comentarios_adicionales'] = comentarios;
+    request.fields['titulo']         = titulo;
+    if (periodoInicio != null) request.fields['periodo_inicio'] = periodoInicio;
+    if (periodoFin    != null) request.fields['periodo_fin']    = periodoFin;
+    if (descripcion   != null) request.fields['descripcion']    = descripcion;
     request.files.add(await http.MultipartFile.fromPath('archivo', archivo.path));
     final streamed = await request.send();
     final res = await http.Response.fromStream(streamed);
@@ -198,8 +204,8 @@ class ApiService {
     String? descripcion,
   }) async {
     final token = await getToken();
-    final request = http.MultipartRequest('POST', Uri.parse('\$baseUrl/evidencias'));
-    request.headers['Authorization'] = 'Bearer \$token';
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/evidencias'));
+    request.headers['Authorization'] = 'Bearer $token';
     if (descripcion != null) request.fields['descripcion'] = descripcion;
     request.files.add(await http.MultipartFile.fromPath('archivo', archivo.path));
     final streamed = await request.send();
@@ -208,7 +214,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getMisEvidencias() async {
-    final res = await http.get(Uri.parse('\$baseUrl/evidencias/mis'), headers: await _headers());
+    final res = await http.get(Uri.parse('$baseUrl/evidencias/mis'), headers: await _headers());
     return _parse(res);
   }
 
@@ -218,8 +224,8 @@ class ApiService {
     required String nombre,
   }) async {
     final token = await getToken();
-    final request = http.MultipartRequest('POST', Uri.parse('\$baseUrl/documentos'));
-    request.headers['Authorization'] = 'Bearer \$token';
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/documentos'));
+    request.headers['Authorization'] = 'Bearer $token';
     request.fields['nombre'] = nombre;
     request.files.add(await http.MultipartFile.fromPath('archivo', archivo.path));
     final streamed = await request.send();
@@ -228,25 +234,32 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getMisDocumentos() async {
-    final res = await http.get(Uri.parse('\$baseUrl/documentos/mis'), headers: await _headers());
+    final res = await http.get(Uri.parse('$baseUrl/documentos/mis'), headers: await _headers());
     return _parse(res);
   }
 
   static Future<Map<String, dynamic>> eliminarDocumento(int id) async {
-    final res = await http.delete(Uri.parse('\$baseUrl/documentos/\$id'), headers: await _headers());
+    final res = await http.delete(Uri.parse('$baseUrl/documentos/$id'), headers: await _headers());
     return _parse(res);
   }
 
   // ── Periodos de reporte ───────────────────────────────────────
   static Future<Map<String, dynamic>> getPeriodos() async {
-    final res = await http.get(Uri.parse('\$baseUrl/reportes/periodos'), headers: await _headers());
+    final res = await http.get(Uri.parse('$baseUrl/reportes/periodos'), headers: await _headers());
     return _parse(res);
   }
 
   // ── Parser general ────────────────────────────────────────────────────────
+  // Registra un callback para cuando el token expire (redirigir al login)
+  static void Function()? onSessionExpired;
+
   static Map<String, dynamic> _parse(http.Response res) {
     try {
       final body = jsonDecode(res.body) as Map<String, dynamic>;
+      if (res.statusCode == 401) {
+        clearSession();
+        onSessionExpired?.call();
+      }
       return body;
     } catch (_) {
       return {'ok': false, 'message': 'Error de conexión (${res.statusCode})'};

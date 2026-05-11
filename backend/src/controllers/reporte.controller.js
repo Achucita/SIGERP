@@ -3,42 +3,49 @@ const ReporteModel = require('../models/reporte.model');
 const NotifModel   = require('../models/notificacion.model');
 const { ok, created, badRequest, serverError } = require('../utils/response');
 
-// Alumno sube reporte formal — solo si el periodo está abierto
+// Alumno sube reporte formal
 async function subir(req, res) {
   try {
     if (!req.file) return badRequest(res, 'Se requiere un archivo PDF.');
 
     const numeroReporte = parseInt(req.body.numero_reporte);
-    const periodoCubre  = req.body.periodo_cubre;
+    const titulo        = req.body.titulo;
+    const periodoInicio = req.body.periodo_inicio;
+    const periodoFin    = req.body.periodo_fin;
 
     if (!numeroReporte || ![1, 2, 3].includes(numeroReporte))
       return badRequest(res, 'numero_reporte debe ser 1, 2 o 3.');
-    if (!periodoCubre)
-      return badRequest(res, 'periodo_cubre es requerido.');
+    if (!titulo)
+      return badRequest(res, 'El titulo es requerido.');
 
     const habilitado = await ReporteModel.periodoHabilitado(numeroReporte);
     if (!habilitado)
-      return badRequest(res, `El periodo ${numeroReporte} aún no está habilitado por el administrador.`);
+      return badRequest(res, `El periodo ${numeroReporte} aun no esta habilitado.`);
 
     const misReportes = await ReporteModel.porAlumno(req.usuario.id);
-    const yaExiste = misReportes.some(r =>
-      r.numero_reporte === numeroReporte || r.numero_reporte.toString() === numeroReporte.toString()
+    const yaExiste    = misReportes.some(r =>
+      r.numero_reporte.toString() === numeroReporte.toString()
     );
     if (yaExiste)
       return badRequest(res, `Ya enviaste el reporte ${numeroReporte}.`);
 
+    // Guardar ruta relativa
+    const rutaRelativa = `uploads/reportes/${req.file.filename}`;
+
     const id = await ReporteModel.crear({
-      idAlumno:               req.usuario.id,
+      idAlumno:     req.usuario.id,
       numeroReporte,
-      periodoCubre,
-      rutaArchivo:            req.file.path,
-      comentariosAdicionales: req.body.comentarios_adicionales || null,
+      titulo,
+      descripcion:  req.body.descripcion || null,
+      periodoInicio: periodoInicio || null,
+      periodoFin:    periodoFin    || null,
+      rutaArchivo:   rutaRelativa,
     });
 
     await NotifModel.crear({
       idUsuario: req.usuario.id,
       tipo:      'reporte_enviado',
-      mensaje:   `Tu reporte ${numeroReporte} (${periodoCubre}) fue enviado a administración.`,
+      mensaje:   `Tu reporte ${numeroReporte} fue enviado a administracion.`,
     });
 
     return created(res, { id }, `Reporte ${numeroReporte} enviado.`);
@@ -47,30 +54,25 @@ async function subir(req, res) {
   }
 }
 
-// Alumno ve sus reportes
 async function misReportes(req, res) {
   try {
-    const lista = await ReporteModel.porAlumno(req.usuario.id);
-    return ok(res, lista);
+    return ok(res, await ReporteModel.porAlumno(req.usuario.id));
   } catch (err) {
     return serverError(res, err);
   }
 }
 
-// Admin ve todos los reportes
 async function listar(req, res) {
   try {
-    const lista = await ReporteModel.listar({
+    return ok(res, await ReporteModel.listar({
       estado:   req.query.estado   || null,
       idAlumno: req.query.idAlumno ? parseInt(req.query.idAlumno) : null,
-    });
-    return ok(res, lista);
+    }));
   } catch (err) {
     return serverError(res, err);
   }
 }
 
-// Admin revisa un reporte
 async function revisar(req, res) {
   try {
     const { estado, comentario, idAlumno } = req.body;
@@ -84,7 +86,7 @@ async function revisar(req, res) {
         idUsuario: parseInt(idAlumno),
         tipo:      'reporte_revisado',
         mensaje:   estado === 'revisado'
-          ? 'Tu reporte fue revisado y aceptado por administración.'
+          ? 'Tu reporte fue revisado y aceptado.'
           : `Tu reporte fue devuelto con observaciones: ${comentario}`,
       });
     }
@@ -95,17 +97,14 @@ async function revisar(req, res) {
   }
 }
 
-// Admin y alumno ven los periodos y sus fechas
 async function periodos(req, res) {
   try {
-    const lista = await ReporteModel.listarPeriodos();
-    return ok(res, lista);
+    return ok(res, await ReporteModel.listarPeriodos());
   } catch (err) {
     return serverError(res, err);
   }
 }
 
-// Admin configura fechas de un periodo
 async function actualizarPeriodo(req, res) {
   try {
     const { numero_reporte, nombre, fecha_apertura, fecha_cierre } = req.body;

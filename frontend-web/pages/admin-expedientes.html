@@ -164,7 +164,6 @@
                   <th>Empresa / Proyecto</th>
                   <th style="text-align:center">Docs</th>
                   <th style="text-align:center">Reportes</th>
-                  <th style="text-align:center">Evidencias</th>
                   <th style="text-align:center">Antepr.</th>
                   <th></th>
                 </tr>
@@ -193,7 +192,6 @@
         <div class="exp-tabs">
           <button class="exp-tab active" data-panel="panel-docs">📄 Documentos</button>
           <button class="exp-tab" data-panel="panel-reportes">📊 Reportes</button>
-          <button class="exp-tab" data-panel="panel-evidencias">🖼️ Evidencias</button>
           <button class="exp-tab" data-panel="panel-antep">📝 Anteproyecto</button>
         </div>
 
@@ -225,16 +223,6 @@
                 </thead>
                 <tbody id="reportes-body"></tbody>
               </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- Evidencias -->
-        <div class="exp-panel" id="panel-evidencias">
-          <div class="card">
-            <div class="card-header"><span class="card-title">Evidencias</span></div>
-            <div class="card-body" id="evidencias-body">
-              <div class="empty-panel">Cargando…</div>
             </div>
           </div>
         </div>
@@ -309,7 +297,6 @@
         </td>
         <td style="text-align:center">${numBadge(a.total_documentos)}</td>
         <td style="text-align:center">${numBadge(a.total_reportes)}</td>
-        <td style="text-align:center">${numBadge(a.total_evidencias)}</td>
         <td style="text-align:center">${numBadge(a.total_anteproyectos)}</td>
         <td>
           <button class="btn btn-sm btn-primary"
@@ -366,19 +353,18 @@
       document.getElementById('det-stats').innerHTML = `
         <div class="mini-stat"><div class="mini-stat-val">${documentos.length}</div><div class="mini-stat-lbl">Docs</div></div>
         <div class="mini-stat"><div class="mini-stat-val">${reportes.length}</div><div class="mini-stat-lbl">Reportes</div></div>
-        <div class="mini-stat"><div class="mini-stat-val">${evidencias.length}</div><div class="mini-stat-lbl">Evidencias</div></div>
         <div class="mini-stat"><div class="mini-stat-val">${anteproyectos.length}</div><div class="mini-stat-lbl">Antepr.</div></div>`;
 
       // Panel: Documentos
       document.getElementById('docs-body').innerHTML = documentos.length
-        ? documentos.map(d => `
+        ? documentos.map((d,i) => `
           <div class="archivo-row">
             <div class="archivo-icon">📄</div>
             <div class="archivo-info">
               <div class="archivo-nombre">${h(d.nombre)}</div>
               <div class="archivo-meta">Subido el ${fmtFecha(d.fecha_subida)}</div>
             </div>
-            <a href="${h(d.ruta_archivo)}" target="_blank" class="btn btn-sm btn-secondary">Ver</a>
+            <button class="btn btn-sm btn-secondary" data-ruta="${h(d.ruta_archivo)}" onclick="abrirArchivoDato(this)">Ver</button>
           </div>`).join('')
         : '<div class="empty-panel">Sin documentos registrados.</div>';
 
@@ -386,30 +372,14 @@
       document.getElementById('reportes-body').innerHTML = reportes.length
         ? reportes.map(r => `
           <tr>
-            <td><span class="badge badge-blue">Reporte ${r.numero_reporte}</span></td>
-            <td style="font-size:12px;color:var(--muted)">${h(r.periodo_cubre)}</td>
+            <td><span class="badge badge-blue">Reporte ${r.numero_reporte}</span><div style="font-size:11px;color:var(--muted);margin-top:2px">${h(r.titulo||'')}</div></td>
+            <td style="font-size:12px;color:var(--muted)">${r.periodo_inicio ? fmtFecha(r.periodo_inicio) + ' → ' + fmtFecha(r.periodo_fin) : '—'}</td>
             <td>${badgeEstado(r.estado)}</td>
             <td style="font-size:12px;color:var(--muted)">${fmtFecha(r.fecha_envio)}</td>
-            <td style="font-size:12px;color:var(--muted);max-width:200px">${h(r.comentario_admin || r.comentarios_adicionales || '—')}</td>
-            <td><a href="${h(r.ruta_archivo)}" target="_blank" class="btn btn-sm btn-secondary">📄 PDF</a></td>
+            <td style="font-size:12px;color:var(--muted);max-width:200px">${h(r.comentario_admin||'—')}</td>
+            <td><button class="btn btn-sm btn-secondary" data-ruta="${h(r.ruta_archivo)}" onclick="abrirArchivoDato(this)">📄 PDF</button></td>
           </tr>`).join('')
         : '<tr><td colspan="6" class="empty-panel">Sin reportes enviados.</td></tr>';
-
-      // Panel: Evidencias
-      document.getElementById('evidencias-body').innerHTML = evidencias.length
-        ? evidencias.map(ev => `
-          <div class="archivo-row">
-            <div class="archivo-icon">🖼️</div>
-            <div class="archivo-info">
-              <div class="archivo-nombre">${h(ev.descripcion || 'Evidencia')}</div>
-              <div class="archivo-meta">
-                Enviada el ${fmtFecha(ev.fecha_envio)}
-                ${ev.comentario_asesor ? ' · 💬 ' + h(ev.comentario_asesor) : ''}
-              </div>
-            </div>
-            <a href="${h(ev.ruta_archivo)}" target="_blank" class="btn btn-sm btn-secondary">Ver</a>
-          </div>`).join('')
-        : '<div class="empty-panel">Sin evidencias registradas.</div>';
 
       // Panel: Anteproyecto
       document.getElementById('antep-body').innerHTML = anteproyectos.length
@@ -425,7 +395,7 @@
               </div>
               ${ant.descripcion ? '<div style="font-size:12px;color:var(--muted);margin-top:6px">' + h(ant.descripcion) + '</div>' : ''}
             </div>
-            <a href="${h(ant.ruta_archivo)}" target="_blank" class="btn btn-sm btn-secondary">📄 PDF</a>
+            <button class="btn btn-sm btn-secondary" data-ruta="${h(ant.ruta_archivo)}" onclick="abrirArchivoDato(this)">📄 PDF</button>
           </div>`).join('')
         : '<div class="empty-panel">Sin anteproyecto registrado.</div>';
 
@@ -464,6 +434,27 @@
     return String(s ?? '')
       .replace(/&/g,'&amp;').replace(/</g,'&lt;')
       .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Abre archivo leyendo la ruta desde data-ruta (evita problemas con backslashes en strings inline)
+  function abrirArchivoDato(btn) {
+    const ruta = btn.dataset.ruta;
+    if (!ruta) return;
+    // Normalizar separadores de Windows a URL
+    const rutaLimpia = ruta.replace(/\\/g, '/').replace(/^\/+/, '');
+    const url   = 'http://localhost:3000/' + rutaLimpia;
+    const token = localStorage.getItem('sigerp_token');
+    btn.disabled = true;
+    btn.textContent = '...';
+    fetch(url, { headers: { Authorization: 'Bearer ' + token } })
+      .then(r => { if (!r.ok) throw new Error('Error ' + r.status); return r.blob(); })
+      .then(blob => {
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      })
+      .catch(err => alert('No se pudo abrir el archivo: ' + err.message))
+      .finally(() => { btn.disabled = false; btn.textContent = btn.dataset.ruta?.endsWith('.pdf') ? '📄 PDF' : 'Ver'; });
   }
 
   cargarLista();

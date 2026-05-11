@@ -39,10 +39,10 @@
           <div class="stat-sub" id="stat-proyectos-sub"></div>
         </div>
         <div class="stat-card c-warn">
-          <div class="stat-icon">📋</div>
-          <div class="stat-label">Postulaciones</div>
-          <div class="stat-value" id="stat-postulaciones">—</div>
-          <div class="stat-sub" id="stat-post-sub"></div>
+          <div class="stat-icon">🎓</div>
+          <div class="stat-label">Alumnos en residencias</div>
+          <div class="stat-value" id="stat-residencias">—</div>
+          <div class="stat-sub" id="stat-residencias-sub"></div>
         </div>
         <div class="stat-card c-danger">
           <div class="stat-icon">📝</div>
@@ -60,24 +60,23 @@
 
       <div class="two-col">
 
-        <!-- Postulaciones recientes -->
+        <!-- Alumnos en residencias -->
         <div class="card">
           <div class="card-header">
-            <span class="card-title">Postulaciones recientes</span>
-            <a href="postulaciones.html" class="btn btn-sm btn-secondary">Ver todas</a>
+            <span class="card-title">Alumnos en residencias</span>
+            <a href="admin-expedientes.html" class="btn btn-sm btn-secondary">Ver expedientes</a>
           </div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>Alumno</th>
-                  <th>Proyecto</th>
-                  <th>Estado</th>
-                  <th>Fecha</th>
+                  <th>Empresa / Proyecto</th>
+                  <th>Reportes</th>
                 </tr>
               </thead>
-              <tbody id="tbody-postulaciones">
-                <tr class="loading-row"><td colspan="4"><div class="spinner"></div></td></tr>
+              <tbody id="tbody-residencias">
+                <tr class="loading-row"><td colspan="3"><div class="spinner"></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -147,7 +146,7 @@
   // ── Cargar datos ─────────────────────────────────────────────
   async function cargarDashboard() {
     await Promise.all([
-      cargarPostulaciones(),
+      cargarResidencias(),
       cargarProyectos(),
       cargarStats(),
     ]);
@@ -155,10 +154,9 @@
 
   async function cargarStats() {
     try {
-      const [usuarios, proyectos, postulaciones, antep] = await Promise.all([
+      const [usuarios, proyectos, antep] = await Promise.all([
         usuariosApi.listar('alumno'),
         proyectosApi.listar(),
-        postulacionesApi.porProyecto ? [] : [],  // simplificado
         anteproyectosApi.pendientes(),
       ]);
 
@@ -178,41 +176,39 @@
     }
   }
 
-  async function cargarPostulaciones() {
-    const tbody = document.getElementById('tbody-postulaciones');
+  async function cargarResidencias() {
+    const tbody = document.getElementById('tbody-residencias');
     try {
-      // Obtenemos postulaciones de todos los proyectos (simplificado)
-      const proyectos = await proyectosApi.listar({ estado: 'publicado' });
-      let todasPost = [];
-      for (const p of proyectos.slice(0, 4)) {
-        const posts = await postulacionesApi.porProyecto(p.id_proyecto);
-        todasPost = todasPost.concat(posts.map(po => ({ ...po, _proyecto: p.nombre })));
-      }
-      // Mostrar las 6 más recientes
-      const recientes = todasPost.slice(0, 6);
+      const lista = await apiFetch('/expedientes');
+      const alumnos = Array.isArray(lista) ? lista : [];
 
-      if (!recientes.length) {
-        return tablaEmpty('tbody-postulaciones', 'Sin postulaciones aún.', 4);
-      }
+      document.getElementById('stat-residencias').textContent = alumnos.length;
+      document.getElementById('stat-residencias-sub').textContent =
+        alumnos.length === 1 ? '1 alumno activo' : `${alumnos.length} alumnos activos`;
 
-      tbody.innerHTML = recientes.map(p => `
-        <tr>
+      if (!alumnos.length)
+        return tablaEmpty('tbody-residencias', 'Sin alumnos en residencias.', 3);
+
+      tbody.innerHTML = alumnos.slice(0, 6).map(a => `
+        <tr style="cursor:pointer" onclick="location.href='admin-expedientes.html'">
           <td>
             <div class="avatar-row">
-              <div class="avatar">${iniciales(p.alumno || '?')}</div>
+              <div class="avatar">${iniciales(a.nombre || '?')}</div>
               <div>
-                <div class="td-name">${p.alumno || '—'}</div>
-                <div class="td-sub">${p.matricula || ''}</div>
+                <div class="td-name">${a.nombre || '—'}</div>
+                <div class="td-sub">${a.matricula || ''}</div>
               </div>
             </div>
           </td>
-          <td>${p._proyecto}</td>
-          <td>${badgeEstado(p.estado)}</td>
-          <td class="text-muted text-sm">${fmtFecha(p.fecha_postulacion)}</td>
+          <td>
+            <div class="td-name">${a.empresa || '—'}</div>
+            <div class="td-sub">${a.proyecto || ''}</div>
+          </td>
+          <td><span class="badge badge-blue">${a.total_reportes || 0} reporte(s)</span></td>
         </tr>
       `).join('');
     } catch (err) {
-      tablaEmpty('tbody-postulaciones', 'Error al cargar.', 4);
+      tablaEmpty('tbody-residencias', 'Error al cargar.', 3);
     }
   }
 
@@ -223,8 +219,6 @@
       // Proyectos en revisión
       const enRevision = proyectos.filter(p => p.estado === 'revision');
       const tbodyRev   = document.getElementById('tbody-revision');
-      document.getElementById('stat-postulaciones').textContent =
-        proyectos.reduce((a, p) => a + (p.alumnos_aceptados || 0), 0);
 
       if (!enRevision.length) {
         tablaEmpty('tbody-revision', 'Sin proyectos en revisión.', 3);

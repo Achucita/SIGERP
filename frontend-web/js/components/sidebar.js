@@ -25,11 +25,12 @@ function renderSidebar(paginaActiva = '') {
 
   const navAsesor = [
     { seccion: 'Principal', items: [
-      { href: 'dashboard-asesor.html', icon: '⊞', label: 'Dashboard' },
-      { href: 'mis-alumnos.html',      icon: '👥', label: 'Mis alumnos' },
-      { href: 'reportes-alumno.html',  icon: '📄', label: 'Reportes' },
-      { href: 'evaluaciones.html',     icon: '⭐', label: 'Evaluaciones' },
-      { href: 'perfil.html', icon: '👤', label: 'Mi perfil' },
+      { href: 'dashboard-asesor.html',      icon: '⊞', label: 'Dashboard' },
+      { href: 'anteproyectos-asesor.html',  icon: '📝', label: 'Anteproyectos' },
+      { href: 'mis-alumnos.html',           icon: '👥', label: 'Mis alumnos' },
+      { href: 'reportes-alumno.html',       icon: '📄', label: 'Reportes' },
+      { href: 'evaluaciones.html',          icon: '⭐', label: 'Evaluaciones' },
+      { href: 'perfil.html',               icon: '👤', label: 'Mi perfil' },
     ]},
   ];
 
@@ -131,6 +132,7 @@ function badgeEstado(estado) {
     pendiente:    '<span class="badge badge-amber">Pendiente</span>',
     aceptada:     '<span class="badge badge-green">Aceptada</span>',
     rechazada:    '<span class="badge badge-red">Rechazada</span>',
+    asignado:     '<span class="badge badge-teal">Asignado</span>',
     publicado:    '<span class="badge badge-green">Publicado</span>',
     revision:     '<span class="badge badge-amber">En revisión</span>',
     cerrado:      '<span class="badge badge-gray">Cerrado</span>',

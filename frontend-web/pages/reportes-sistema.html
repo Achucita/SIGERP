@@ -118,23 +118,24 @@
 
   async function cargarReportes() {
     try {
-      const [alumnos, asesores, proyectos] = await Promise.all([
+      // Una sola query trae todos los alumnos con su info completa
+      const [alumnos, asesores, proyectos, listaAlumnos] = await Promise.all([
         usuariosApi.listar('alumno'),
         usuariosApi.listar('asesor'),
         proyectosApi.listar(),
+        expedienteApi.listarAlumnos(),
       ]);
 
       // Stats
-      document.getElementById('s-alumnos').textContent  = alumnos.length;
-      document.getElementById('s-asesores').textContent = asesores.length;
+      document.getElementById('s-alumnos').textContent   = alumnos.length;
+      document.getElementById('s-asesores').textContent  = asesores.length;
       document.getElementById('s-proyectos').textContent =
         proyectos.filter(p => p.estado === 'publicado').length;
-      document.getElementById('s-empresas').textContent =
+      document.getElementById('s-empresas').textContent  =
         new Set(proyectos.map(p => p.empresa)).size;
 
       // Gráfica de proyectos
       const estadosProy = ['publicado','revision','cerrado','despublicado'];
-      const colorProy   = ['badge-green','badge-amber','badge-gray','badge-red'];
       document.getElementById('chart-proy').innerHTML = estadosProy.map((est, i) => {
         const n   = proyectos.filter(p => p.estado === est).length;
         const pct = proyectos.length ? Math.round(n / proyectos.length * 100) : 0;
@@ -151,33 +152,12 @@
           </div>`;
       }).join('');
 
-      // Tabla de alumnos con residencia aceptada
-      let filas = [];
-      for (const p of proyectos.filter(p => p.estado === 'publicado')) {
-        const posts = await postulacionesApi.porProyecto(p.id_proyecto);
-        const acept = posts.filter(po => po.estado === 'aceptada');
-        filas = filas.concat(acept.map(po => ({
-          alumno:    po.alumno,
-          matricula: po.matricula,
-          carrera:   po.carrera,
-          proyecto:  p.nombre,
-          empresa:   p.empresa,
-          asesor:    p.asesor || '—',
-          estado:    po.estado,
-        })));
-      }
-      _datosReporte = filas;
-
-      // Gráfica de postulaciones
-      let todasPost = [];
-      for (const p of proyectos) {
-        const posts = await postulacionesApi.porProyecto(p.id_proyecto);
-        todasPost = todasPost.concat(posts);
-      }
-      const estPost  = ['pendiente','aceptada','rechazada'];
+      // Gráfica de postulaciones — contar por estado desde listaAlumnos
+      const estPost = ['pendiente','aceptada','rechazada'];
+      const totalPost = listaAlumnos.length;
       document.getElementById('chart-post').innerHTML = estPost.map(est => {
-        const n   = todasPost.filter(p => p.estado === est).length;
-        const pct = todasPost.length ? Math.round(n / todasPost.length * 100) : 0;
+        const n   = listaAlumnos.filter(a => a.estado_postulacion === est).length;
+        const pct = totalPost ? Math.round(n / totalPost * 100) : 0;
         return `
           <div>
             <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
@@ -191,13 +171,23 @@
           </div>`;
       }).join('');
 
-      document.getElementById('n-total') && null;
+      // Tabla — usar listaAlumnos directamente (ya tiene todo)
+      _datosReporte = listaAlumnos.map(a => ({
+        alumno:    a.nombre,
+        matricula: a.matricula,
+        carrera:   a.carrera,
+        proyecto:  a.proyecto  || '—',
+        empresa:   a.empresa   || '—',
+        asesor:    a.asesor    || '—',
+        estado:    a.estado_postulacion || '—',
+      }));
 
-      if (!filas.length) {
-        tablaEmpty('tbody-reporte', 'Sin alumnos en residencia activa.', 7);
+      if (!_datosReporte.length) {
+        tablaEmpty('tbody-reporte', 'Sin alumnos registrados.', 7);
         return;
       }
-      document.getElementById('tbody-reporte').innerHTML = filas.map(f => `
+
+      document.getElementById('tbody-reporte').innerHTML = _datosReporte.map(f => `
         <tr>
           <td>
             <div class="avatar-row">

@@ -159,15 +159,16 @@ class AnteproyectoTab extends StatefulWidget {
 }
 
 class _AnteproyectoTabState extends State<AnteproyectoTab> {
-  final _tituloCtrl = TextEditingController();
-  final _descCtrl   = TextEditingController();
+  final _tituloCtrl   = TextEditingController();
+  final _descCtrl     = TextEditingController();
+  final _asesoresCtrl = TextEditingController();
   File? _archivo; String? _nombreArchivo;
   bool _subiendo = false;
   Map<String, dynamic>? _antep;
   bool _loading = true;
 
   @override void initState() { super.initState(); _cargar(); }
-  @override void dispose() { _tituloCtrl.dispose(); _descCtrl.dispose(); super.dispose(); }
+  @override void dispose() { _tituloCtrl.dispose(); _descCtrl.dispose(); _asesoresCtrl.dispose(); super.dispose(); }
 
   Future<void> _cargar() async {
     setState(() => _loading = true);
@@ -195,12 +196,13 @@ class _AnteproyectoTabState extends State<AnteproyectoTab> {
         archivo: _archivo!,
         titulo:  _tituloCtrl.text.trim(),
         descripcion: _descCtrl.text.isNotEmpty ? _descCtrl.text : null,
+        asesoresPropuestos: _asesoresCtrl.text.isNotEmpty ? _asesoresCtrl.text : null,
       );
       if (mounted) {
         if (res['ok'] == true) {
           _snack('Anteproyecto enviado');
           setState(() { _archivo = null; _nombreArchivo = null; });
-          _tituloCtrl.clear(); _descCtrl.clear();
+          _tituloCtrl.clear(); _descCtrl.clear(); _asesoresCtrl.clear();
           await _cargar();
         } else { _snack(res['message'] ?? 'Error', error: true); }
       }
@@ -237,6 +239,13 @@ class _AnteproyectoTabState extends State<AnteproyectoTab> {
             const SizedBox(height: 14),
             AppTextField(label: 'Descripción (opcional)', controller: _descCtrl,
               hint: 'Breve descripción del proyecto...'),
+            const SizedBox(height: 14),
+            AppTextField(
+              label: 'Propuesta de asesor(es)',
+              controller: _asesoresCtrl,
+              hint: 'Ej: Dr. Juan Pérez, Ing. María López',
+              helpText: 'Escribe los nombres de los asesores que propones. El admin decidirá.',
+            ),
             const SizedBox(height: 14),
             _PickerArchivo(archivo: _archivo, nombre: _nombreArchivo,
               extensiones: ['pdf', 'docx'], onTap: _selArchivo),
@@ -330,28 +339,36 @@ class _PeriodoCard extends StatefulWidget {
 
 class _PeriodoCardState extends State<_PeriodoCard> {
   bool _expandido = false;
-  final _periodoCtrl = TextEditingController();
-  final _comentCtrl  = TextEditingController();
+  final _tituloRCtrl = TextEditingController();
+  final _inicioCtrl  = TextEditingController();
+  final _finCtrl     = TextEditingController();
+  final _descRCtrl   = TextEditingController();
   File? _archivo; String? _nombreArchivo;
   bool _subiendo = false;
 
-  @override void dispose() { _periodoCtrl.dispose(); _comentCtrl.dispose(); super.dispose(); }
+  @override void dispose() {
+    _tituloRCtrl.dispose(); _inicioCtrl.dispose();
+    _finCtrl.dispose(); _descRCtrl.dispose(); super.dispose();
+  }
 
   bool get _abierto => widget.periodo?['estado_periodo'] == 'abierto';
   bool get _yaEnviado => widget.reporte != null;
 
   Future<void> _subir() async {
-    if (_archivo == null || _periodoCtrl.text.isEmpty) {
+    if (_archivo == null || _tituloRCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Completa el periodo y adjunta el PDF'),
+        content: Text('El título y el archivo son requeridos'),
         backgroundColor: AppColors.statusRejected)); return;
     }
     setState(() => _subiendo = true);
     try {
       final res = await ApiService.subirReporte(
-        numeroReporte: widget.numero, periodoCubre: _periodoCtrl.text,
-        archivo: _archivo!,
-        comentarios: _comentCtrl.text.isNotEmpty ? _comentCtrl.text : null,
+        numeroReporte:  widget.numero,
+        titulo:         _tituloRCtrl.text.trim(),
+        periodoInicio:  _inicioCtrl.text.isNotEmpty ? _inicioCtrl.text : null,
+        periodoFin:     _finCtrl.text.isNotEmpty    ? _finCtrl.text    : null,
+        descripcion:    _descRCtrl.text.isNotEmpty  ? _descRCtrl.text  : null,
+        archivo:        _archivo!,
       );
       if (mounted) {
         if (res['ok'] == true) {
@@ -359,7 +376,7 @@ class _PeriodoCardState extends State<_PeriodoCard> {
             content: Text('Reporte ${widget.numero} enviado'),
             backgroundColor: AppColors.statusAccepted));
           setState(() { _expandido = false; _archivo = null; _nombreArchivo = null; });
-          _periodoCtrl.clear(); _comentCtrl.clear();
+          _tituloRCtrl.clear(); _inicioCtrl.clear(); _finCtrl.clear(); _descRCtrl.clear();
           widget.onEnviado();
         } else {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -445,10 +462,16 @@ class _PeriodoCardState extends State<_PeriodoCard> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Divider(), const SizedBox(height: 12),
-              AppTextField(label: 'Periodo que cubre', controller: _periodoCtrl,
-                hint: 'Ej: Enero - Febrero 2025'),
+              AppTextField(label: 'Titulo del reporte', controller: _tituloRCtrl,
+                hint: 'Ej: Reporte de avance enero'),
               const SizedBox(height: 12),
-              AppTextField(label: 'Comentarios (opcional)', controller: _comentCtrl, hint: '...'),
+              AppTextField(label: 'Periodo inicio (yyyy-mm-dd)', controller: _inicioCtrl,
+                hint: 'Ej: 2025-01-15'),
+              const SizedBox(height: 12),
+              AppTextField(label: 'Periodo fin (yyyy-mm-dd)', controller: _finCtrl,
+                hint: 'Ej: 2025-02-15'),
+              const SizedBox(height: 12),
+              AppTextField(label: 'Descripcion (opcional)', controller: _descRCtrl, hint: '...'),
               const SizedBox(height: 12),
               _PickerArchivo(archivo: _archivo, nombre: _nombreArchivo,
                 extensiones: ['pdf'],
@@ -817,19 +840,21 @@ class _AntepChip extends StatelessWidget {
 
   Color get _color {
     switch (estado) {
-      case 'aprobado': return AppColors.statusAccepted;
-      case 'rechazado': return AppColors.statusRejected;
+      case 'aprobado':          return AppColors.statusAccepted;
+      case 'rechazado':         return AppColors.statusRejected;
       case 'con_observaciones': return AppColors.statusPending;
-      default: return AppColors.statusPartial;
+      case 'asignado':          return AppColors.primary;
+      default:                  return AppColors.statusPartial;
     }
   }
 
   String get _label {
     switch (estado) {
-      case 'aprobado': return 'Aprobado';
-      case 'rechazado': return 'Rechazado';
+      case 'aprobado':          return 'Aprobado';
+      case 'rechazado':         return 'Rechazado';
       case 'con_observaciones': return 'Con observaciones';
-      default: return 'En revisión';
+      case 'asignado':          return 'Con asesor — en revisión';
+      default:                  return 'En revisión';
     }
   }
 

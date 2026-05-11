@@ -83,28 +83,23 @@
   async function cargarAlumnos() {
     tablaLoading('tbody-alumnos', 6);
     try {
-      const perfil    = await usuariosApi.perfil();
-      const proyectos = await proyectosApi.listar();
-      const misProy   = proyectos.filter(p => p.asesor === perfil.nombre);
+      // Un alumno es "mi alumno" cuando su anteproyecto fue aprobado por este asesor
+      const anteps = await anteproyectosApi.misAsignados();
+      const aprobados = anteps.filter(a => a.estado === 'aprobado');
 
-      let lista = [];
-      for (const p of misProy) {
-        const posts = await postulacionesApi.porProyecto(p.id_proyecto);
-        const acept = posts.filter(po => po.estado === 'aceptada');
-        // Obtener reportes de cada alumno en este proyecto
-        for (const po of acept) {
-          const reps = await reportesApi.porProyecto(p.id_proyecto);
-          const misReps = reps.filter(r => r.matricula === po.matricula);
-          lista.push({
-            ...po,
-            _proyecto:   p.nombre,
-            _empresa:    p.empresa,
-            _idProyecto: p.id_proyecto,
-            _nReportes:  misReps.length,
-            _nPend:      misReps.filter(r => r.estado === 'enviado').length,
-          });
-        }
-      }
+      const lista = aprobados.map(a => ({
+        id_alumno:   a.id_alumno,
+        alumno:      a.alumno,
+        matricula:   a.matricula,
+        carrera:     a.carrera,
+        _proyecto:   a.proyecto || '—',
+        _empresa:    a.empresa  || '—',
+        _idProyecto: a.id_proyecto || null,
+        // Reportes se cargan lazy al hacer clic en "Ver reportes"
+        _nReportes:  a.total_reportes || 0,
+        _nPend:      0,
+      }));
+
       _todos = lista;
       document.getElementById('card-title').textContent = `Alumnos asignados (${lista.length})`;
       renderTabla(lista);

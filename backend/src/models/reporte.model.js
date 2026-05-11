@@ -1,32 +1,38 @@
 // src/models/reporte.model.js
 const { getPool, sql } = require('../config/db');
 
-// ── Crear reporte formal ──────────────────────────────────────
-async function crear({ idAlumno, numeroReporte, periodoCubre, rutaArchivo, comentariosAdicionales }) {
+// Crear reporte formal — columnas reales de la BD
+async function crear({ idAlumno, numeroReporte, titulo, descripcion,
+                       periodoInicio, periodoFin, rutaArchivo }) {
   const pool = await getPool();
   const res  = await pool.request()
-    .input('alumno',      sql.Int,      idAlumno)
-    .input('numero',      sql.Int,      numeroReporte)
-    .input('periodo',     sql.NVarChar, periodoCubre)
-    .input('ruta',        sql.NVarChar, rutaArchivo)
-    .input('comentarios', sql.NVarChar, comentariosAdicionales || null)
+    .input('alumno',   sql.Int,      idAlumno)
+    .input('numero',   sql.Int,      numeroReporte)
+    .input('titulo',   sql.NVarChar, titulo)
+    .input('desc',     sql.NVarChar, descripcion || null)
+    .input('inicio',   sql.Date,     periodoInicio ? new Date(periodoInicio) : null)
+    .input('fin',      sql.Date,     periodoFin    ? new Date(periodoFin)    : null)
+    .input('ruta',     sql.NVarChar, rutaArchivo)
     .query(`
-      INSERT INTO reportes (id_alumno, numero_reporte, periodo_cubre, ruta_archivo, comentarios_adicionales)
+      INSERT INTO reportes
+        (id_alumno, numero_reporte, titulo, descripcion,
+         periodo_inicio, periodo_fin, ruta_archivo, estado)
       OUTPUT INSERTED.id_reporte
-      VALUES (@alumno, @numero, @periodo, @ruta, @comentarios)
+      VALUES (@alumno, @numero, @titulo, @desc,
+              @inicio, @fin, @ruta, 'enviado')
     `);
   return res.recordset[0].id_reporte;
 }
 
-// ── Reportes del alumno ───────────────────────────────────────
+// Reportes del alumno
 async function porAlumno(idAlumno) {
   const pool = await getPool();
   const res  = await pool.request()
     .input('id', sql.Int, idAlumno)
     .query(`
-      SELECT id_reporte, numero_reporte, periodo_cubre,
-             ruta_archivo, comentarios_adicionales,
-             estado, fecha_envio, fecha_revision
+      SELECT id_reporte, numero_reporte, titulo, descripcion,
+             periodo_inicio, periodo_fin, ruta_archivo,
+             estado, fecha_envio, comentario_asesor, comentario_admin
       FROM   reportes
       WHERE  id_alumno = @id
       ORDER BY numero_reporte ASC
@@ -34,7 +40,7 @@ async function porAlumno(idAlumno) {
   return res.recordset;
 }
 
-// ── Todos los reportes (admin) ────────────────────────────────
+// Todos los reportes — admin
 async function listar({ idAlumno, estado } = {}) {
   const pool  = await getPool();
   const req   = pool.request();
@@ -43,20 +49,39 @@ async function listar({ idAlumno, estado } = {}) {
   if (estado)   { req.input('estado', sql.NVarChar, estado);   conds.push('r.estado = @estado'); }
   const where = conds.length ? 'WHERE ' + conds.join(' AND ') : '';
   const res   = await req.query(`
-    SELECT r.id_reporte, r.numero_reporte, r.periodo_cubre,
-           r.ruta_archivo, r.estado, r.fecha_envio, r.fecha_revision,
-           r.comentarios_adicionales,
+    SELECT r.id_reporte, r.numero_reporte, r.titulo, r.descripcion,
+           r.periodo_inicio, r.periodo_fin, r.ruta_archivo,
+           r.estado, r.fecha_envio, r.comentario_asesor, r.comentario_admin,
            u.nombre AS alumno, al.matricula, al.carrera
     FROM   reportes r
     JOIN   alumnos  al ON al.id_alumno = r.id_alumno
-    JOIN   usuarios u  ON u.id_usuario = al.id_alumno
+    JOIN   usuarios u  ON u.id_usuario = r.id_alumno
     ${where}
     ORDER BY r.fecha_envio DESC
   `);
   return res.recordset;
 }
 
-// ── Revisar reporte (admin) ───────────────────────────────────
+// Reportes por proyecto (para asesor)
+async function porProyecto(idProyecto) {
+  const pool = await getPool();
+  const res  = await pool.request()
+    .input('proy', sql.Int, idProyecto)
+    .query(`
+      SELECT r.id_reporte, r.numero_reporte, r.titulo, r.descripcion,
+             r.periodo_inicio, r.periodo_fin, r.ruta_archivo,
+             r.estado, r.fecha_envio, r.comentario_asesor, r.comentario_admin,
+             u.nombre AS alumno, al.matricula
+      FROM   reportes r
+      JOIN   alumnos  al ON al.id_alumno  = r.id_alumno
+      JOIN   usuarios u  ON u.id_usuario  = r.id_alumno
+      WHERE  r.id_proyecto = @proy
+      ORDER BY r.fecha_envio DESC
+    `);
+  return res.recordset;
+}
+
+// Admin revisa reporte
 async function actualizarEstado(id, { estado, comentario }) {
   const pool = await getPool();
   await pool.request()
@@ -65,12 +90,13 @@ async function actualizarEstado(id, { estado, comentario }) {
     .input('comentario', sql.NVarChar, comentario || null)
     .query(`
       UPDATE reportes
-      SET estado = @estado, comentario_admin = @comentario, fecha_revision = GETDATE()
+      SET estado          = @estado,
+          comentario_admin = @comentario
       WHERE id_reporte = @id
     `);
 }
 
-// ── Periodos con fechas de desbloqueo ─────────────────────────
+// Periodos con fechas de desbloqueo
 async function periodoHabilitado(numeroReporte) {
   const pool = await getPool();
   const res  = await pool.request()
@@ -87,8 +113,6 @@ async function periodoHabilitado(numeroReporte) {
 
 async function listarPeriodos() {
   const pool = await getPool();
-
-  // Garantizar que los 3 registros siempre existan en la tabla
   await pool.request().query(`
     MERGE periodos_reporte AS target
     USING (VALUES (1,'Primer Reporte'), (2,'Segundo Reporte'), (3,'Tercer Reporte'))
@@ -98,14 +122,13 @@ async function listarPeriodos() {
       INSERT (numero_reporte, nombre, fecha_apertura, fecha_cierre)
       VALUES (src.numero_reporte, src.nombre, NULL, NULL);
   `);
-
   const res = await pool.request().query(`
     SELECT numero_reporte, nombre, fecha_apertura, fecha_cierre,
       CASE
-        WHEN fecha_apertura IS NULL             THEN 'no_habilitado'
-        WHEN fecha_apertura > GETDATE()         THEN 'proximo'
+        WHEN fecha_apertura IS NULL           THEN 'no_habilitado'
+        WHEN fecha_apertura > GETDATE()       THEN 'proximo'
         WHEN fecha_cierre IS NOT NULL
-         AND fecha_cierre < GETDATE()           THEN 'cerrado'
+         AND fecha_cierre < GETDATE()         THEN 'cerrado'
         ELSE 'abierto'
       END AS estado_periodo
     FROM periodos_reporte
@@ -134,6 +157,6 @@ async function actualizarPeriodo({ numeroReporte, nombre, fechaApertura, fechaCi
 }
 
 module.exports = {
-  crear, porAlumno, listar, actualizarEstado,
+  crear, porAlumno, listar, porProyecto, actualizarEstado,
   periodoHabilitado, listarPeriodos, actualizarPeriodo,
 };

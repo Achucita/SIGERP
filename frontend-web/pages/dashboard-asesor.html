@@ -32,8 +32,8 @@
       <!-- Stats -->
       <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
         <div class="stat-card c-teal">
-          <div class="stat-label">Alumnos asignados</div>
-          <div class="stat-value" id="s-alumnos">—</div>
+          <div class="stat-label">Anteproyectos por revisar</div>
+          <div class="stat-value" id="s-antep">—</div>
         </div>
         <div class="stat-card c-warn">
           <div class="stat-label">Reportes por revisar</div>
@@ -47,38 +47,36 @@
 
       <div class="two-col">
 
-        <!-- Mis alumnos -->
+        <!-- Anteproyectos asignados pendientes de revisar -->
         <div class="card">
           <div class="card-header">
-            <span class="card-title">Mis alumnos</span>
-            <a href="mis-alumnos.html" class="btn btn-sm btn-secondary">Ver todos</a>
+            <span class="card-title">Anteproyectos por revisar</span>
+            <a href="anteproyectos-asesor.html" class="btn btn-sm btn-secondary">Ver todos</a>
           </div>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>Alumno</th>
-                  <th>Avance</th>
+                  <th>Título</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
-              <tbody id="tbody-alumnos">
-                <tr class="loading-row">
-                  <td colspan="3"><div class="spinner"></div></td>
-                </tr>
+              <tbody id="tbody-antep">
+                <tr class="loading-row"><td colspan="3"><div class="spinner"></div></td></tr>
               </tbody>
             </table>
           </div>
         </div>
 
-        <!-- Reportes pendientes de revisar -->
+        <!-- Reportes pendientes -->
         <div class="card">
           <div class="card-header">
             <span class="card-title">Reportes pendientes</span>
             <a href="reportes-alumno.html" class="btn btn-sm btn-secondary">Ver todos</a>
           </div>
           <div id="lista-reportes">
-            <div class="spinner"></div>
+            <div style="padding:20px;text-align:center"><div class="spinner"></div></div>
           </div>
         </div>
 
@@ -94,106 +92,108 @@
 <script src="../js/api/client.js"></script>
 <script src="../js/components/sidebar.js"></script>
 <script>
-  const usuario = checkAuth(['asesor']);
+  checkAuth(['asesor']);
   renderSidebar('dashboard-asesor.html');
 
   async function cargarDashboard() {
     try {
+      // Perfil del asesor logueado
       const perfil = await usuariosApi.perfil();
-
-      // Banner
-      document.getElementById('banner-av').textContent    = iniciales(perfil.nombre);
+      document.getElementById('banner-av').textContent     = iniciales(perfil.nombre);
       document.getElementById('banner-nombre').textContent = perfil.nombre;
-      document.getElementById('banner-area').textContent  =
+      document.getElementById('banner-area').textContent   =
         `Asesor Académico · ${perfil.area || 'Departamento de Sistemas'}`;
 
-      // Para obtener alumnos bajo este asesor necesitamos
-      // los proyectos que tienen id_asesor = mi id
-      const proyectos = await proyectosApi.listar();
-      const misProy   = proyectos.filter(p => p.asesor === perfil.nombre);
+      // Anteproyectos asignados a este asesor
+      const anteps    = await anteproyectosApi.misAsignados();
+      const porRevisar = anteps.filter(a => a.estado === 'asignado');
+      document.getElementById('s-antep').textContent = porRevisar.length;
 
-      // Recopilar alumnos aceptados de mis proyectos
-      let misAlumnos = [];
-      for (const p of misProy) {
-        const posts = await postulacionesApi.porProyecto(p.id_proyecto);
-        const acept = posts.filter(po => po.estado === 'aceptada');
-        misAlumnos  = misAlumnos.concat(
-          acept.map(po => ({ ...po, proyecto: p.nombre, idProyecto: p.id_proyecto }))
-        );
-      }
-
-      document.getElementById('s-alumnos').textContent = misAlumnos.length;
-
-      // Reportes de todos mis proyectos
-      let todosRep = [];
-      for (const p of misProy) {
-        const reps = await reportesApi.porProyecto(p.idProyecto || p.id_proyecto);
-        todosRep   = todosRep.concat(reps.map(r => ({ ...r, _proyecto: p.nombre })));
-      }
-      const pendRep = todosRep.filter(r => r.estado === 'enviado');
-      document.getElementById('s-reportes').textContent = pendRep.length;
-
-      // Evaluaciones emitidas (simplificado: contamos con valor estático de la BD)
-      document.getElementById('s-eval').textContent = '—';
-
-      // Tags del banner
       document.getElementById('banner-tags').innerHTML = [
-        `${misAlumnos.length} alumno(s) asignado(s)`,
-        `${misProy.length} proyecto(s)`,
+        `${anteps.length} anteproyecto(s) asignado(s)`,
+        `${porRevisar.length} por revisar`,
       ].map(t => `<span class="profile-tag">${t}</span>`).join('');
 
-      // Tabla de alumnos
-      if (!misAlumnos.length) {
-        tablaEmpty('tbody-alumnos', 'Sin alumnos asignados aún.', 3);
+      // Tabla de anteproyectos por revisar (máx 5)
+      if (!porRevisar.length) {
+        tablaEmpty('tbody-antep', 'Sin anteproyectos por revisar.', 3);
       } else {
-        document.getElementById('tbody-alumnos').innerHTML = misAlumnos.map(a => `
+        document.getElementById('tbody-antep').innerHTML = porRevisar.slice(0, 5).map(a => `
           <tr>
             <td>
               <div class="avatar-row">
                 <div class="avatar">${iniciales(a.alumno || '?')}</div>
                 <div>
-                  <div class="td-name">${a.alumno || '—'}</div>
+                  <div class="td-name">${a.alumno}</div>
                   <div class="td-sub">${a.matricula || ''}</div>
                 </div>
               </div>
             </td>
-            <td>
-              <div class="progress-bar">
-                <div class="progress-fill" style="width:${a._avance || 30}%"></div>
-              </div>
-              <span class="text-sm text-muted">${a._avance || '—'}%</span>
+            <td class="td-name" style="max-width:180px;white-space:nowrap;
+                overflow:hidden;text-overflow:ellipsis" title="${a.titulo}">
+              ${a.titulo}
             </td>
             <td>
-              <div class="td-actions">
-                <a href="reportes-alumno.html?proyecto=${a.idProyecto}"
-                   class="btn btn-sm btn-secondary">Reportes</a>
-                <a href="evaluaciones.html?alumno=${a.id_alumno}"
-                   class="btn btn-sm btn-primary">Evaluar</a>
-              </div>
+              <a href="anteproyectos-asesor.html" class="btn btn-sm btn-primary">Revisar</a>
             </td>
           </tr>
         `).join('');
       }
 
-      // Lista de reportes pendientes
+      // Reportes pendientes — viene de proyectos donde el asesor tiene alumnos
+      // Usamos los proyectos de los anteproyectos aprobados
+      document.getElementById('s-reportes').textContent = '—';
       const listaEl = document.getElementById('lista-reportes');
-      if (!pendRep.length) {
-        listaEl.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-state-icon">📄</div>
-            <p>Sin reportes pendientes</p>
-          </div>`;
-      } else {
-        listaEl.innerHTML = pendRep.slice(0, 5).map(r => `
-          <div class="activity-item">
-            <div class="activity-dot" style="background:var(--accent)"></div>
-            <div class="activity-text">
-              <strong>${r.alumno || 'Alumno'}</strong> — ${r.titulo}
-              <div class="text-sm text-muted">${r._proyecto} · ${fmtFecha(r.fecha_envio)}</div>
+
+      try {
+        // Intentar cargar reportes de proyectos del asesor
+        const proyectos = await proyectosApi.listar();
+        const misProy   = proyectos.filter(p =>
+          p.id_asesor === perfil.id_usuario || p.asesor === perfil.nombre
+        );
+
+        let pendRep = [];
+        for (const p of misProy.slice(0, 10)) {
+          const reps = await reportesApi.porProyecto(p.id_proyecto);
+          pendRep = pendRep.concat(
+            reps.filter(r => r.estado === 'enviado').map(r => ({ ...r, _proyecto: p.nombre }))
+          );
+        }
+
+        document.getElementById('s-reportes').textContent = pendRep.length;
+
+        if (!pendRep.length) {
+          listaEl.innerHTML = `
+            <div class="empty-state" style="padding:30px">
+              <div class="empty-state-icon">📄</div>
+              <p>Sin reportes pendientes</p>
+            </div>`;
+        } else {
+          listaEl.innerHTML = pendRep.slice(0, 5).map(r => `
+            <div class="activity-item">
+              <div class="activity-dot" style="background:var(--accent)"></div>
+              <div class="activity-text">
+                <strong>${r.alumno || 'Alumno'}</strong>
+                <div class="text-sm text-muted">${r._proyecto} · Reporte ${r.numero_reporte} · ${fmtFecha(r.fecha_envio)}</div>
+              </div>
+              <a href="reportes-alumno.html" class="btn btn-sm btn-primary">Revisar</a>
             </div>
-            <a href="reportes-alumno.html" class="btn btn-sm btn-primary">Revisar</a>
-          </div>
-        `).join('');
+          `).join('');
+        }
+      } catch (_) {
+        listaEl.innerHTML = `
+          <div class="empty-state" style="padding:30px">
+            <p class="text-muted">Sin reportes pendientes</p>
+          </div>`;
+        document.getElementById('s-reportes').textContent = '0';
+      }
+
+      // Evaluaciones emitidas
+      try {
+        const evals = await evaluacionesApi.mis();
+        document.getElementById('s-eval').textContent = Array.isArray(evals) ? evals.length : '—';
+      } catch (_) {
+        document.getElementById('s-eval').textContent = '—';
       }
 
     } catch (err) {

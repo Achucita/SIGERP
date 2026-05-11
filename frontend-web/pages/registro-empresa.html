@@ -507,20 +507,30 @@ textarea.gf-input { resize: none; height: 80px; }
 
   <div class="gf-card">
     <div class="field">
-      <label>¿Se ofrece remuneración económica al alumno? <span class="req-star">*</span></label>
+      <label>¿Se ofrece apoyo económico al alumno? <span class="req-star">*</span></label>
       <div class="opt-row">
-        <input type="radio" name="remun" id="r1" value="Sí" />
+        <input type="radio" name="remun" id="r1" value="si" onchange="toggleMonto()" />
         <label class="opt-label" for="r1">Sí</label>
       </div>
       <div class="opt-row">
-        <input type="radio" name="remun" id="r2" value="No" />
+        <input type="radio" name="remun" id="r2" value="no" onchange="toggleMonto()" />
         <label class="opt-label" for="r2">No</label>
       </div>
       <div class="opt-row">
-        <input type="radio" name="remun" id="r3" value="A convenir" />
+        <input type="radio" name="remun" id="r3" value="a_convenir" onchange="toggleMonto()" />
         <label class="opt-label" for="r3">A convenir</label>
       </div>
       <div class="field-error" id="err-remun">Selecciona una opción.</div>
+    </div>
+
+    <!-- Monto — solo visible si selecciona "Sí" -->
+    <div class="field" id="campo-monto" style="display:none;margin-top:16px">
+      <label for="p6-monto">
+        Monto mensual del apoyo económico (MXN) <span class="req-star">*</span>
+      </label>
+      <input class="gf-input" id="p6-monto" type="number" min="0" step="0.01"
+             placeholder="Ej. 3500.00" />
+      <div class="field-error" id="err-monto">Indica el monto mensual.</div>
     </div>
   </div>
 
@@ -758,6 +768,19 @@ function val(id) {
   return document.getElementById(id)?.value?.trim() || '—';
 }
 
+// ── Mostrar/ocultar campo de monto ───────────────────────────
+function toggleMonto() {
+  const val   = document.querySelector('input[name="remun"]:checked')?.value;
+  const campo = document.getElementById('campo-monto');
+  const input = document.getElementById('p6-monto');
+  if (val === 'si') {
+    campo.style.display = 'block';
+  } else {
+    campo.style.display = 'none';
+    input.value = '';
+  }
+}
+
 // ── Envío al backend ─────────────────────────────────────────
 async function enviar() {
   if (!validarPagina(6)) return;
@@ -774,6 +797,17 @@ async function enviar() {
     .join(', ') || 'Ninguno';
 
   const remun = document.querySelector('input[name="remun"]:checked')?.value || '';
+  const monto = remun === 'si' ? parseFloat(document.getElementById('p6-monto').value) : null;
+
+  // Validar monto si aplica
+  if (remun === 'si' && (!document.getElementById('p6-monto').value || isNaN(monto) || monto < 0)) {
+    document.getElementById('err-monto').style.display = 'block';
+    document.getElementById('p6-monto').focus();
+    btn.disabled    = false;
+    btn.textContent = 'Enviar solicitud';
+    return;
+  }
+  document.getElementById('err-monto').style.display = 'none';
   const area  = document.querySelector('input[name="area"]:checked')?.value || '';
   const modal = document.querySelector('input[name="modalidad"]:checked')?.value || 'presencial';
   const nAlum = document.querySelector('input[name="nalumnos"]:checked')?.value || '1';
@@ -782,7 +816,7 @@ async function enviar() {
   const requisitos = [
     val('p5-req'),
     val('p5-extra') ? `Habilidades: ${val('p5-extra')}` : '',
-    `Remuneración: ${remun}`,
+    remun === 'si' ? `Apoyo económico: $${monto?.toFixed(2)} MXN/mes` : remun === 'a_convenir' ? 'Apoyo económico: A convenir' : 'Sin apoyo económico',
     `Apoyos: ${apoyos}`,
   ].filter(Boolean).join(' | ');
 
@@ -803,6 +837,8 @@ async function enviar() {
     requisitos,
     modalidad:            modal,
     numAlumnos:           parseInt(nAlum) || 1,
+    apoyoEconomico:       remun,
+    montoApoyo:           monto,
   };
 
   try {

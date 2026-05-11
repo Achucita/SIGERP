@@ -109,12 +109,13 @@ class AppTextField extends StatelessWidget {
   final bool obscureText;
   final TextInputType keyboardType;
   final String? hint;
+  final String? helpText;   // texto de ayuda pequeño debajo del campo
   final Widget? suffixIcon;
 
   const AppTextField({
     super.key, required this.label, required this.controller,
     this.obscureText = false, this.keyboardType = TextInputType.text,
-    this.hint, this.suffixIcon,
+    this.hint, this.helpText, this.suffixIcon,
   });
 
   @override
@@ -131,6 +132,10 @@ class AppTextField extends StatelessWidget {
           style: AppTextStyles.body,
           decoration: InputDecoration(hintText: hint, suffixIcon: suffixIcon),
         ),
+        if (helpText != null) ...[
+          const SizedBox(height: 5),
+          Text(helpText!, style: AppTextStyles.caption),
+        ],
       ],
     );
   }
