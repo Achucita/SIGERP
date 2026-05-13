@@ -2,26 +2,41 @@
 const { getPool, sql } = require('../config/db');
 
 // Crear reporte formal — columnas reales de la BD
-async function crear({ idAlumno, numeroReporte, titulo, descripcion,
+async function crear({ idAlumno, idProyecto, numeroReporte, titulo, descripcion,
                        periodoInicio, periodoFin, rutaArchivo }) {
   const pool = await getPool();
   const res  = await pool.request()
     .input('alumno',   sql.Int,      idAlumno)
+    .input('proyecto', sql.Int,      idProyecto)
     .input('numero',   sql.Int,      numeroReporte)
-    .input('titulo',   sql.NVarChar, titulo)
+    .input('titulo',   sql.NVarChar, titulo || null)
     .input('desc',     sql.NVarChar, descripcion || null)
-    .input('inicio',   sql.Date,     periodoInicio ? new Date(periodoInicio) : null)
-    .input('fin',      sql.Date,     periodoFin    ? new Date(periodoFin)    : null)
+    .input('inicio',   sql.NVarChar, periodoInicio || null)
+    .input('fin',      sql.NVarChar, periodoFin    || null)
     .input('ruta',     sql.NVarChar, rutaArchivo)
     .query(`
       INSERT INTO reportes
-        (id_alumno, numero_reporte, titulo, descripcion,
+        (id_alumno, id_proyecto, numero_reporte, titulo, descripcion,
          periodo_inicio, periodo_fin, ruta_archivo, estado)
       OUTPUT INSERTED.id_reporte
-      VALUES (@alumno, @numero, @titulo, @desc,
-              @inicio, @fin, @ruta, 'enviado')
+      VALUES (@alumno, @proyecto, @numero, @titulo, @desc,
+              TRY_CAST(@inicio AS DATE), TRY_CAST(@fin AS DATE), @ruta, 'enviado')
     `);
   return res.recordset[0].id_reporte;
+}
+
+// Obtener id_proyecto del alumno desde su postulacion aceptada
+async function idProyectoDeAlumno(idAlumno) {
+  const pool = await getPool();
+  const res  = await pool.request()
+    .input('id', sql.Int, idAlumno)
+    .query(`
+      SELECT TOP 1 id_proyecto
+      FROM   postulaciones
+      WHERE  id_alumno = @id
+      ORDER BY fecha_postulacion DESC
+    `);
+  return res.recordset[0]?.id_proyecto || null;
 }
 
 // Reportes del alumno
@@ -156,7 +171,31 @@ async function actualizarPeriodo({ numeroReporte, nombre, fechaApertura, fechaCi
     `);
 }
 
+// Actualizar reporte existente (reenvio con correcciones)
+async function actualizar(idReporte, { titulo, descripcion, periodoInicio, periodoFin, rutaArchivo }) {
+  const pool = await getPool();
+  await pool.request()
+    .input('id',     sql.Int,      idReporte)
+    .input('titulo', sql.NVarChar, titulo || null)
+    .input('desc',   sql.NVarChar, descripcion || null)
+    .input('inicio', sql.NVarChar, periodoInicio || null)
+    .input('fin',    sql.NVarChar, periodoFin || null)
+    .input('ruta',   sql.NVarChar, rutaArchivo)
+    .query(`
+      UPDATE reportes
+      SET titulo           = @titulo,
+          descripcion      = @desc,
+          periodo_inicio   = TRY_CAST(@inicio AS DATE),
+          periodo_fin      = TRY_CAST(@fin AS DATE),
+          ruta_archivo     = @ruta,
+          estado           = 'enviado',
+          comentario_admin = NULL,
+          fecha_envio      = GETDATE()
+      WHERE id_reporte = @id
+    `);
+}
+
 module.exports = {
-  crear, porAlumno, listar, porProyecto, actualizarEstado,
+  crear, actualizar, idProyectoDeAlumno, porAlumno, listar, porProyecto, actualizarEstado,
   periodoHabilitado, listarPeriodos, actualizarPeriodo,
 };

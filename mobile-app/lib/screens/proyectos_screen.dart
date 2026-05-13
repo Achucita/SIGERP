@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import '../services/api_service.dart';
 import '../utils/theme.dart';
 import '../widgets/common_widgets.dart';
@@ -259,6 +261,10 @@ class _ProyectoDetalleScreenState extends State<ProyectoDetalleScreen> {
   Map<String, dynamic>? _detalle;
   bool _loading = true;
 
+  /// CV seleccionado por el alumno (opcional)
+  File? _cvFile;
+  String? _cvNombre;
+
   @override
   void initState() { super.initState(); _cargarDetalle(); }
 
@@ -270,14 +276,38 @@ class _ProyectoDetalleScreenState extends State<ProyectoDetalleScreen> {
     if (mounted) setState(() => _loading = false);
   }
 
+  // ── Seleccionar CV ────────────────────────────────────────────────────────
+  Future<void> _seleccionarCV() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'doc', 'docx'],
+      withData: false,
+    );
+    if (result != null && result.files.single.path != null) {
+      setState(() {
+        _cvFile   = File(result.files.single.path!);
+        _cvNombre = result.files.single.name;
+      });
+    }
+  }
+
+  void _quitarCV() => setState(() { _cvFile = null; _cvNombre = null; });
+
+  // ── Postularse ────────────────────────────────────────────────────────────
   Future<void> _postular() async {
     setState(() => _postulando = true);
     try {
-      final res = await ApiService.postular(widget.proyecto['id_proyecto']);
+      final res = await ApiService.postular(
+        widget.proyecto['id_proyecto'],
+        cvFile: _cvFile,
+      );
       if (mounted) {
         if (res['ok'] == true) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('¡Postulación enviada exitosamente!'),
+          final cvSubido = res['data']?['cvSubido'] == true;
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(cvSubido
+                ? '¡Postulación enviada con CV adjunto!'
+                : '¡Postulación enviada exitosamente!'),
             backgroundColor: AppColors.statusAccepted,
           ));
           Navigator.pop(context);
@@ -301,8 +331,7 @@ class _ProyectoDetalleScreenState extends State<ProyectoDetalleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Usa el detalle completo si ya cargó, si no usa los datos del listado
-    final p = _detalle ?? widget.proyecto;
+    final p          = _detalle ?? widget.proyecto;
     final numAlumnos = p['num_alumnos'] ?? p['total_lugares'] ?? 3;
     final aceptados  = p['alumnos_aceptados'] ?? 0;
     final lugares    = numAlumnos - aceptados;
@@ -383,10 +412,20 @@ class _ProyectoDetalleScreenState extends State<ProyectoDetalleScreen> {
             ),
           ),
 
-          // Botones
+          // ── Sección CV + Botón postularse ─────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
             child: Column(children: [
+              // Selector de CV
+              if (!lleno) ...[
+                _CvSelector(
+                  cvNombre: _cvNombre,
+                  onSelect: _seleccionarCV,
+                  onRemove: _quitarCV,
+                ),
+                const SizedBox(height: 12),
+              ],
+
               PrimaryButton(
                 label: lleno ? 'Sin lugares disponibles' : 'POSTULARME',
                 loading: _postulando,
@@ -411,6 +450,92 @@ class _ProyectoDetalleScreenState extends State<ProyectoDetalleScreen> {
   }
 }
 
+// ── CV Selector widget ────────────────────────────────────────────────────────
+class _CvSelector extends StatelessWidget {
+  final String? cvNombre;
+  final VoidCallback onSelect;
+  final VoidCallback onRemove;
+  const _CvSelector({this.cvNombre, required this.onSelect, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.darkCard,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: cvNombre != null
+              ? AppColors.primary.withOpacity(0.5)
+              : AppColors.darkBorder,
+        ),
+      ),
+      child: Row(children: [
+        Icon(
+          cvNombre != null ? Icons.description_rounded : Icons.upload_file_rounded,
+          color: cvNombre != null ? AppColors.primary : AppColors.textSecondary,
+          size: 22,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(
+              cvNombre != null ? 'CV adjunto' : 'Adjuntar CV (opcional)',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: cvNombre != null ? AppColors.primary : AppColors.textSecondary,
+              ),
+            ),
+            if (cvNombre != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                cvNombre!,
+                style: AppTextStyles.bodySecondary.copyWith(fontSize: 11),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ] else ...[
+              const SizedBox(height: 2),
+              Text(
+                'PDF, DOC o DOCX — máx. 5 MB',
+                style: AppTextStyles.bodySecondary.copyWith(fontSize: 11),
+              ),
+            ],
+          ]),
+        ),
+        if (cvNombre != null)
+          GestureDetector(
+            onTap: onRemove,
+            child: const Icon(Icons.close_rounded, color: AppColors.textSecondary, size: 18),
+          )
+        else
+          GestureDetector(
+            onTap: onSelect,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+              ),
+              child: Text(
+                'Seleccionar',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ),
+      ]),
+    );
+  }
+}
+
+// ── Subwidgets sin cambios ────────────────────────────────────────────────────
 class _InfoBadge extends StatelessWidget {
   final IconData icon;
   final String label;

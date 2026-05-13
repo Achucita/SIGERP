@@ -1,6 +1,9 @@
+// src/utils/email.js
 const nodemailer = require('nodemailer');
 const env        = require('../config/env');
- 
+const path       = require('path');
+const fs         = require('fs');
+
 const transporter = nodemailer.createTransport({
   host:   env.smtp.host,
   port:   env.smtp.port,
@@ -10,12 +13,33 @@ const transporter = nodemailer.createTransport({
     pass: env.smtp.pass,
   },
 });
- 
+
 /**
- * Envía el correo a la empresa cuando un alumno se postula.
- * @param {object} datos - { empresa, proyecto, alumno, correoEmpresa }
+ * Envía el correo al responsable del proyecto cuando un alumno se postula.
+ * Si el alumno subió su CV, se adjunta al correo.
+ *
+ * @param {object} datos
+ * @param {string}  datos.empresa
+ * @param {string}  datos.proyecto
+ * @param {string}  datos.correoEmpresa   - destinatario
+ * @param {object}  datos.alumno          - { nombre, correo, matricula, carrera }
+ * @param {string|null} datos.cvRuta      - ruta relativa en disco, p.ej. "uploads/cvs/archivo.pdf"
  */
-async function enviarCorreoPostulacion({ empresa, proyecto, alumno, correoEmpresa }) {
+async function enviarCorreoPostulacion({ empresa, proyecto, alumno, correoEmpresa, cvRuta = null }) {
+  const fecha = new Date().toLocaleDateString('es-MX', {
+    day: '2-digit', month: 'long', year: 'numeric',
+  });
+
+  const cvFila = cvRuta
+    ? `<tr style="background:#f0f5fa;">
+         <td style="padding:10px 14px; font-weight:bold; color:#1B6CA8;">CV adjunto</td>
+         <td style="padding:10px 14px;">✅ Sí — ver archivo adjunto</td>
+       </tr>`
+    : `<tr style="background:#f0f5fa;">
+         <td style="padding:10px 14px; font-weight:bold; color:#1B6CA8;">CV adjunto</td>
+         <td style="padding:10px 14px; color:#9aa0a6;">No proporcionado</td>
+       </tr>`;
+
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: #0D1B2A; padding: 20px; text-align: center;">
@@ -25,7 +49,7 @@ async function enviarCorreoPostulacion({ empresa, proyecto, alumno, correoEmpres
           Instituto Tecnológico de León — Residencias Profesionales
         </p>
       </div>
- 
+
       <div style="padding: 28px 24px; background: #fff; border: 1px solid #e0e0e0;">
         <h2 style="color: #0D1B2A; font-size: 18px; margin-bottom: 8px;">
           Nueva postulación: ${proyecto}
@@ -34,7 +58,7 @@ async function enviarCorreoPostulacion({ empresa, proyecto, alumno, correoEmpres
           Estimado equipo de <strong>${empresa}</strong>, un alumno del Instituto
           Tecnológico de León se ha postulado a su proyecto de residencia profesional.
         </p>
- 
+
         <table style="width:100%; border-collapse:collapse; font-size:13px;">
           <tr style="background:#f0f5fa;">
             <td style="padding:10px 14px; font-weight:bold; width:40%; color:#1B6CA8;">Proyecto</td>
@@ -60,18 +84,17 @@ async function enviarCorreoPostulacion({ empresa, proyecto, alumno, correoEmpres
           </tr>
           <tr>
             <td style="padding:10px 14px; font-weight:bold; color:#1B6CA8;">Fecha de postulación</td>
-            <td style="padding:10px 14px;">${new Date().toLocaleDateString('es-MX', {
-              day: '2-digit', month: 'long', year: 'numeric'
-            })}</td>
+            <td style="padding:10px 14px;">${fecha}</td>
           </tr>
+          ${cvFila}
         </table>
- 
+
         <p style="font-size:13px; color:#5f6368; margin-top:20px; line-height:1.6;">
           Para aceptar o rechazar al alumno, responda este correo o escríbale directamente.
           El administrador del ITL actualizará el estado de la postulación en el sistema.
         </p>
       </div>
- 
+
       <div style="background:#f5f5f5; padding:14px; text-align:center;
         font-size:11px; color:#9aa0a6; border-top:1px solid #e0e0e0;">
         Correo automático generado por SIGERP · No requiere cuenta para responder ·
@@ -79,15 +102,28 @@ async function enviarCorreoPostulacion({ empresa, proyecto, alumno, correoEmpres
       </div>
     </div>
   `;
- 
+
+  // Construir adjuntos si existe CV
+  const attachments = [];
+  if (cvRuta) {
+    const rutaAbsoluta = path.join(__dirname, '..', '..', cvRuta);
+    if (fs.existsSync(rutaAbsoluta)) {
+      attachments.push({
+        filename: `CV_${alumno.nombre.replace(/\s+/g, '_')}_${alumno.matricula}${path.extname(cvRuta)}`,
+        path:     rutaAbsoluta,
+      });
+    }
+  }
+
   await transporter.sendMail({
-    from:    `"SIGERP — ITL" <${env.smtp.from}>`,
-    to:      correoEmpresa,
-    subject: `Nueva postulación al proyecto: ${proyecto}`,
+    from:        `"SIGERP — ITL" <${env.smtp.from}>`,
+    to:          correoEmpresa,
+    subject:     `Nueva postulación al proyecto: ${proyecto}`,
     html,
+    attachments,
   });
 }
- 
+
 /**
  * Correo genérico de notificación interna (para futuras expansiones).
  */
@@ -99,5 +135,5 @@ async function enviarCorreoGenerico({ to, subject, html }) {
     html,
   });
 }
- 
+
 module.exports = { enviarCorreoPostulacion, enviarCorreoGenerico };

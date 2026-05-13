@@ -431,7 +431,7 @@ class _PeriodoCardState extends State<_PeriodoCard> {
                 _EstadoReporteChip(estado: estadoReporte),
               ],
             ])),
-            if (_abierto && !_yaEnviado)
+            if (_abierto && (!_yaEnviado || estadoReporte == 'con_observaciones'))
               GestureDetector(
                 onTap: () => setState(() => _expandido = !_expandido),
                 child: Container(
@@ -457,7 +457,7 @@ class _PeriodoCardState extends State<_PeriodoCard> {
               ])),
           ),
         // Formulario colapsable
-        if (_abierto && !_yaEnviado && _expandido)
+        if (_abierto && (!_yaEnviado || estadoReporte == 'con_observaciones') && _expandido)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

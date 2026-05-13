@@ -119,34 +119,74 @@
   let _todos   = [];
   let _filtroE = '';
 
-  // Leer idProyecto de la URL si viene desde mis-alumnos
-  const params    = new URLSearchParams(window.location.search);
-  const idProyURL = params.get('proyecto') ? parseInt(params.get('proyecto')) : null;
+  function h(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // Puede venir con ?alumno=ID o ?proyecto=ID desde mis-alumnos
+  const params     = new URLSearchParams(window.location.search);
+  const idAlumnoURL = params.get('alumno') ? parseInt(params.get('alumno')) : null;
+  const idProyURL   = params.get('proyecto') ? parseInt(params.get('proyecto')) : null;
 
   async function init() {
-    if (idProyURL) {
-      cargarReportes(idProyURL);
+    if (idAlumnoURL) {
+      // Cargar reportes por alumno directamente
+      cargarReportesPorAlumno(idAlumnoURL);
+    } else if (idProyURL) {
+      cargarReportesPorProyecto(idProyURL);
     } else {
-      // Mostrar selector de proyecto
-      document.getElementById('bloque-selector').style.display = 'block';
-      tablaEmpty('tbody-rep', 'Selecciona un proyecto para ver sus reportes.', 7);
-      const perfil    = await usuariosApi.perfil();
-      const proyectos = await proyectosApi.listar();
-      const misProy   = proyectos.filter(p => p.asesor === perfil.nombre);
-      const sel       = document.getElementById('select-proyecto');
-      sel.innerHTML   = '<option value="">— Seleccionar proyecto —</option>' +
-        misProy.map(p => `<option value="${p.id_proyecto}">${p.nombre}</option>`).join('');
+      // Sin parámetro: cargar todos los reportes de alumnos asignados al asesor
+      cargarTodosReportes();
     }
   }
 
-  async function cargarReportes(idProy) {
-    const id = idProy || parseInt(document.getElementById('select-proyecto').value);
-    if (!id) return;
+  async function cargarTodosReportes() {
     tablaLoading('tbody-rep', 7);
     try {
-      _todos = await reportesApi.porProyecto(id);
-      document.getElementById('card-title').textContent =
-        `Reportes de avance (${_todos.length})`;
+      // Obtener anteproyectos aprobados del asesor para saber qué alumnos son suyos
+      const anteps   = await anteproyectosApi.misAsignados();
+      const aprobados = anteps.filter(a => a.estado === 'aprobado');
+      if (!aprobados.length) {
+        tablaEmpty('tbody-rep', 'No tienes alumnos asignados aún.', 7);
+        return;
+      }
+      // Cargar reportes de todos sus alumnos
+      let todos = [];
+      for (const a of aprobados) {
+        const reps = await reportesApi.porAlumno(a.id_alumno);
+        todos = todos.concat(reps);
+      }
+      _todos = todos;
+      document.getElementById('card-title').textContent = `Reportes de avance (${_todos.length})`;
+      renderTabla(aplicarFiltro());
+    } catch (err) {
+      tablaEmpty('tbody-rep', `Error: ${err.message}`, 7);
+      toast(err.message, 'error');
+    }
+  }
+
+  async function cargarReportesPorAlumno(idAlumno) {
+    tablaLoading('tbody-rep', 7);
+    try {
+      _todos = await reportesApi.porAlumno(idAlumno);
+      document.getElementById('card-title').textContent = `Reportes de avance (${_todos.length})`;
+      renderTabla(aplicarFiltro());
+    } catch (err) {
+      tablaEmpty('tbody-rep', `Error: ${err.message}`, 7);
+      toast(err.message, 'error');
+    }
+  }
+
+  async function cargarReportesPorProyecto(idProy) {
+    tablaLoading('tbody-rep', 7);
+    try {
+      _todos = await reportesApi.porProyecto(idProy);
+      document.getElementById('card-title').textContent = `Reportes de avance (${_todos.length})`;
       renderTabla(aplicarFiltro());
     } catch (err) {
       tablaEmpty('tbody-rep', `Error: ${err.message}`, 7);
@@ -188,14 +228,16 @@
             : ''}
         </td>
         <td class="text-sm text-muted">
-          ${fmtFecha(r.periodo_inicio)} – ${fmtFecha(r.periodo_fin)}
+          ${r.periodo_inicio ? fmtFecha(r.periodo_inicio) + ' – ' + fmtFecha(r.periodo_fin) : '—'}
         </td>
         <td class="text-sm text-muted">${fmtFecha(r.fecha_envio)}</td>
         <td>${badgeEstado(r.estado)}</td>
         <td>
-          <div class="td-actions">
-            <button class="btn btn-sm btn-secondary"
-                    onclick="abrirComentario(${r.id_reporte}, '${r.titulo.replace(/'/g,"\\'")}',
+          <div class="td-actions" style="gap:6px;display:flex">
+            <button class="btn btn-sm btn-secondary" data-ruta="${h(r.ruta_archivo)}"
+                    onclick="abrirPDFReporte(this)">📄 PDF</button>
+            <button class="btn btn-sm btn-primary"
+                    onclick="abrirComentario(${r.id_reporte}, '${r.titulo ? r.titulo.replace(/'/g,"\\'"): ''}',
                       '${(r.alumno||'').replace(/'/g,"\\'")}', '${r.estado}',
                       '${(r.comentario_asesor||'').replace(/'/g,"\\'")}')">
               ${r.estado === 'enviado' ? 'Revisar' : 'Editar revisión'}
@@ -229,7 +271,7 @@
       await reportesApi.comentar(id, { estado, comentario });
       toast('Revisión guardada. El alumno fue notificado.');
       closeModal('modal-comentar');
-      cargarReportes(idProyURL);
+      init();
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -241,6 +283,29 @@
   document.querySelectorAll('.modal-overlay').forEach(o =>
     o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); })
   );
+
+  async function abrirPDFReporte(btn) {
+    const ruta = btn.dataset.ruta;
+    if (!ruta) return;
+    const rutaLimpia = ruta.replace(/\\/g, '/').replace(/^\/+/, '');
+    const url   = 'http://localhost:3000/' + rutaLimpia;
+    const token = localStorage.getItem('sigerp_token');
+    const txt   = btn.textContent;
+    btn.disabled = true; btn.textContent = '...';
+    try {
+      const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+      if (!r.ok) throw new Error('Error ' + r.status);
+      const blob    = await r.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl; a.target = '_blank';
+      a.download = rutaLimpia.split('/').pop();
+      a.style.display = 'none';
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(blobUrl); }, 5000);
+    } catch(err) { alert('No se pudo abrir: ' + err.message); }
+    finally { btn.disabled = false; btn.textContent = txt; }
+  }
 
   init();
 </script>

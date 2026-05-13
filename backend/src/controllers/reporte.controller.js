@@ -23,24 +23,37 @@ async function subir(req, res) {
       return badRequest(res, `El periodo ${numeroReporte} aun no esta habilitado.`);
 
     const misReportes = await ReporteModel.porAlumno(req.usuario.id);
-    const yaExiste    = misReportes.some(r =>
+    const existente   = misReportes.find(r =>
       r.numero_reporte.toString() === numeroReporte.toString()
     );
-    if (yaExiste)
-      return badRequest(res, `Ya enviaste el reporte ${numeroReporte}.`);
 
-    // Guardar ruta relativa
     const rutaRelativa = `uploads/reportes/${req.file.filename}`;
 
-    const id = await ReporteModel.crear({
-      idAlumno:     req.usuario.id,
-      numeroReporte,
-      titulo,
-      descripcion:  req.body.descripcion || null,
-      periodoInicio: periodoInicio || null,
-      periodoFin:    periodoFin    || null,
-      rutaArchivo:   rutaRelativa,
-    });
+    let id;
+    if (existente) {
+      // Reenvio con correcciones — actualizar el reporte existente
+      await ReporteModel.actualizar(existente.id_reporte, {
+        titulo,
+        descripcion:   req.body.descripcion || null,
+        periodoInicio: periodoInicio || null,
+        periodoFin:    periodoFin    || null,
+        rutaArchivo:   rutaRelativa,
+      });
+      id = existente.id_reporte;
+    } else {
+      // Primer envio — crear nuevo reporte
+      const idProyecto = await ReporteModel.idProyectoDeAlumno(req.usuario.id);
+      id = await ReporteModel.crear({
+        idAlumno:      req.usuario.id,
+        idProyecto,
+        numeroReporte,
+        titulo,
+        descripcion:   req.body.descripcion || null,
+        periodoInicio: periodoInicio || null,
+        periodoFin:    periodoFin    || null,
+        rutaArchivo:   rutaRelativa,
+      });
+    }
 
     await NotifModel.crear({
       idUsuario: req.usuario.id,

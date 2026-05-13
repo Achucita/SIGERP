@@ -437,24 +437,46 @@
   }
 
   // Abre archivo leyendo la ruta desde data-ruta (evita problemas con backslashes en strings inline)
-  function abrirArchivoDato(btn) {
+  const SERVIDOR = 'http://localhost:3000';  // ← ajusta si cambias de puerto
+
+  async function abrirArchivoDato(btn) {
     const ruta = btn.dataset.ruta;
     if (!ruta) return;
-    // Normalizar separadores de Windows a URL
     const rutaLimpia = ruta.replace(/\\/g, '/').replace(/^\/+/, '');
     const url   = 'http://localhost:3000/' + rutaLimpia;
     const token = localStorage.getItem('sigerp_token');
+    const textoOriginal = btn.textContent;
     btn.disabled = true;
     btn.textContent = '...';
-    fetch(url, { headers: { Authorization: 'Bearer ' + token } })
-      .then(r => { if (!r.ok) throw new Error('Error ' + r.status); return r.blob(); })
-      .then(blob => {
-        const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, '_blank');
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-      })
-      .catch(err => alert('No se pudo abrir el archivo: ' + err.message))
-      .finally(() => { btn.disabled = false; btn.textContent = btn.dataset.ruta?.endsWith('.pdf') ? '📄 PDF' : 'Ver'; });
+    try {
+      const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+      if (!r.ok) throw new Error('Error ' + r.status);
+      const blob = await r.blob();
+      // Crear iframe oculto para evitar bloqueo de popups
+      const blobUrl = URL.createObjectURL(blob);
+      const iframe  = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = blobUrl;
+      document.body.appendChild(iframe);
+      // Abrir en nueva pestaña via click en anchor con download
+      const a = document.createElement('a');
+      a.href     = blobUrl;
+      a.target   = '_blank';
+      a.download = rutaLimpia.split('/').pop();
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        document.body.removeChild(iframe);
+        URL.revokeObjectURL(blobUrl);
+      }, 5000);
+    } catch (err) {
+      alert('Error al abrir: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = textoOriginal;
+    }
   }
 
   cargarLista();

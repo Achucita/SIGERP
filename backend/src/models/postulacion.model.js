@@ -1,15 +1,19 @@
 // src/models/postulacion.model.js
 const { getPool, sql } = require('../config/db');
 
-async function crear({ idAlumno, idProyecto }) {
+/**
+ * Crea una postulación. Si el alumno adjuntó CV, guarda la ruta.
+ */
+async function crear({ idAlumno, idProyecto, cvRuta = null }) {
   const pool = await getPool();
   const res  = await pool.request()
-    .input('alumno',   sql.Int, idAlumno)
-    .input('proyecto', sql.Int, idProyecto)
+    .input('alumno',   sql.Int,          idAlumno)
+    .input('proyecto', sql.Int,          idProyecto)
+    .input('cvRuta',   sql.NVarChar(500), cvRuta)
     .query(`
-      INSERT INTO postulaciones (id_alumno, id_proyecto)
+      INSERT INTO postulaciones (id_alumno, id_proyecto, cv_ruta)
       OUTPUT INSERTED.id_postulacion
-      VALUES (@alumno, @proyecto)
+      VALUES (@alumno, @proyecto, @cvRuta)
     `);
   return res.recordset[0].id_postulacion;
 }
@@ -32,7 +36,7 @@ async function buscarPorId(id) {
     .input('id', sql.Int, id)
     .query(`
       SELECT po.id_postulacion, po.id_alumno, po.id_proyecto,
-             po.fecha_postulacion, po.correo_enviado,
+             po.fecha_postulacion, po.correo_enviado, po.cv_ruta,
              p.nombre  AS proyecto,
              e.nombre  AS empresa,
              e.correo_empresa
@@ -55,6 +59,7 @@ async function porAlumno(idAlumno) {
         po.id_alumno,
         po.id_proyecto,
         po.fecha_postulacion,
+        po.cv_ruta,
         p.nombre                        AS proyecto,
         e.nombre                        AS empresa,
         ISNULL(ua.nombre, NULL)         AS asesor_interno
@@ -75,6 +80,7 @@ async function porProyecto(idProyecto) {
     .input('id', sql.Int, idProyecto)
     .query(`
       SELECT po.id_postulacion, po.id_alumno, po.fecha_postulacion,
+             po.cv_ruta,
              u.nombre AS alumno, al.matricula, al.carrera
       FROM   postulaciones po
       JOIN   alumnos       al ON al.id_alumno  = po.id_alumno

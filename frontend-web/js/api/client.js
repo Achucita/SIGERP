@@ -61,15 +61,22 @@ const anteproyectosApi = {
 
   // Abre un PDF en nueva pestaña enviando el JWT (window.open no manda headers)
   async abrirPDF(ruta) {
-    const url   = anteproyectosApi.urlArchivo(ruta);
+    const rutaLimpia = (ruta || '').replace(/\\/g, '/').replace(/^\/+/, '');
+    const url   = API_BASE.replace('/api', '') + '/' + rutaLimpia;
     const token = localStorage.getItem('sigerp_token');
     try {
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const blob    = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, '_blank');
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      const a = document.createElement('a');
+      a.href     = blobUrl;
+      a.target   = '_blank';
+      a.download = rutaLimpia.split('/').pop();
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(blobUrl); }, 5000);
     } catch (err) {
       alert('No se pudo abrir el PDF: ' + err.message);
     }
@@ -77,10 +84,12 @@ const anteproyectosApi = {
 };
 
 const reportesApi = {
-  subir:       (formData)  => api.upload('/reportes', formData),
-  mis:         ()          => api.get('/reportes/mis'),
-  porProyecto: (id)        => api.get(`/reportes/proyecto/${id}`),
-  comentar:    (id, datos) => api.put(`/reportes/${id}/comentar`, datos),
+  subir:      (formData)   => api.upload('/reportes', formData),
+  mis:        ()           => api.get('/reportes/mis'),
+  porProyecto:(id)         => api.get(`/reportes/proyecto/${id}`),
+  porAlumno:  (idAlumno)   => api.get(`/reportes?idAlumno=${idAlumno}`),
+  todos:      ()           => api.get('/reportes'),
+  comentar:   (id, datos)  => api.put(`/reportes/${id}`, datos),
 };
 
 const evaluacionesApi = {

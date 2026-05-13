@@ -26,8 +26,9 @@ async function buscarPorAlumno(idAlumno) {
       SELECT
         ant.id_anteproyecto, ant.titulo, ant.descripcion,
         ant.ruta_archivo, ant.estado,
-        ant.comentario_admin, ant.fecha_envio, ant.fecha_revision,
+        ant.comentario_admin, ant.fecha_envio,
         ant.id_alumno, ant.asesores_propuestos,
+        ant.id_asesor_asignado,
         u.nombre     AS alumno,
         al.matricula,
         ua.nombre    AS asesor_asignado
