@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGERP — Evidencias del alumno</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+
+<div class="app-layout">
+  <nav class="sidebar" id="sidebar"></nav>
+
+  <div class="app-main">
+    <header class="topbar">
+      <div class="topbar-title" id="topbar-titulo">Evidencias</div>
+      <div class="topbar-actions">
+        <a href="mis-alumnos.html" class="btn btn-secondary btn-sm">← Mis alumnos</a>
+      </div>
+    </header>
+
+    <main class="app-content">
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="card-title">Evidencias subidas por el alumno</span>
+          <div class="tab-pills">
+            <button class="tab-pill active" onclick="setFiltro('', this)">Todas</button>
+            <button class="tab-pill" onclick="setFiltro('sin', this)">Sin retroalimentación</button>
+            <button class="tab-pill" onclick="setFiltro('con', this)">Con retroalimentación</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Alumno</th>
+                <th>Descripción</th>
+                <th>Fecha envío</th>
+                <th>Retroalimentación</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-evid">
+              <tr class="loading-row">
+                <td colspan="5"><div class="spinner"></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Modal: agregar/editar comentario -->
+<div class="modal-overlay" id="modal-comentar">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Retroalimentación</span>
+      <button class="modal-close" onclick="closeModal('modal-comentar')">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:14px">
+        <div class="form-label">Alumno</div>
+        <div id="c-alumno" style="font-size:14px;font-weight:600"></div>
+        <div id="c-desc" class="text-sm text-muted" style="margin-top:4px"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Comentario para el alumno <span class="req">*</span></label>
+        <textarea class="form-control" id="c-comentario"
+                  placeholder="Escribe tu retroalimentación…" rows="5"></textarea>
+      </div>
+      <input type="hidden" id="c-id" />
+      <input type="hidden" id="c-idAlumno" />
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-comentar')">Cancelar</button>
+        <button class="btn btn-primary" id="btn-guardar" onclick="guardarComentario()">
+          💾 Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api/client.js"></script>
+<script src="../js/components/sidebar.js"></script>
+<script>
+  checkAuth(['asesor']);
+  renderSidebar('evidencias-asesor.html');
+
+  const params     = new URLSearchParams(window.location.search);
+  const idAlumnoURL = params.get('alumno') ? parseInt(params.get('alumno')) : null;
+  const nombreURL   = params.get('nombre') || 'Alumno';
+
+  if (idAlumnoURL) {
+    document.getElementById('topbar-titulo').textContent = `Evidencias — ${nombreURL}`;
+  }
+
+  let _todos   = [];
+  let _filtro  = '';
+
+  function h(v) {
+    return String(v || '')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  async function init() {
+    tablaLoading('tbody-evid', 5);
+    try {
+      // porAsesor devuelve todas las evidencias de sus alumnos
+      const todas = await evidenciasApi.porAsesor();
+      // Si viene filtrado por alumno desde mis-alumnos, filtra aquí
+      _todos = idAlumnoURL
+        ? todas.filter(e => e.id_alumno === idAlumnoURL || String(e.id_alumno) === String(idAlumnoURL))
+        : todas;
+
+      document.getElementById('card-title').textContent =
+        `Evidencias subidas (${_todos.length})`;
+      renderTabla(aplicarFiltro());
+    } catch (err) {
+      tablaEmpty('tbody-evid', `Error al cargar evidencias: ${err.message}`, 5);
+      toast(err.message, 'error');
+    }
+  }
+
+  function setFiltro(tipo, btn) {
+    _filtro = tipo;
+    document.querySelectorAll('.tab-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderTabla(aplicarFiltro());
+  }
+
+  function aplicarFiltro() {
+    if (_filtro === 'sin') return _todos.filter(e => !e.comentario_asesor);
+    if (_filtro === 'con') return _todos.filter(e =>  e.comentario_asesor);
+    return _todos;
+  }
+
+  function renderTabla(lista) {
+    if (!lista.length) {
+      return tablaEmpty('tbody-evid', 'Sin evidencias en este estado.', 5);
+    }
+    document.getElementById('tbody-evid').innerHTML = lista.map(e => `
+      <tr>
+        <td>
+          <div class="avatar-row">
+            <div class="avatar">${iniciales(e.alumno || '?')}</div>
+            <div>
+              <div class="td-name">${h(e.alumno || '—')}</div>
+              <div class="td-sub">${h(e.matricula || '')}</div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <div class="td-name" style="max-width:240px;word-break:break-word">
+            ${h(e.descripcion || '—')}
+          </div>
+        </td>
+        <td class="text-sm text-muted">${fmtFecha(e.fecha_envio)}</td>
+        <td style="max-width:220px">
+          ${e.comentario_asesor
+            ? `<div class="text-sm" style="color:var(--teal-l)">
+                 ✅ ${h(e.comentario_asesor.slice(0,80))}${e.comentario_asesor.length > 80 ? '…' : ''}
+               </div>
+               <div class="text-sm text-muted">${fmtFecha(e.fecha_comentario)}</div>`
+            : `<span class="badge badge-amber">Sin retroalimentación</span>`}
+        </td>
+        <td>
+          <div class="td-actions" style="gap:6px;display:flex">
+            <button class="btn btn-sm btn-secondary"
+                    data-ruta="${h(e.ruta_archivo)}"
+                    onclick="abrirArchivo(this)">📄 Ver</button>
+            <button class="btn btn-sm btn-primary"
+                    onclick="abrirModal(
+                      ${e.id_evidencia},
+                      ${e.id_alumno ?? 'null'},
+                      '${(e.alumno||'').replace(/'/g,"\\'")}',
+                      '${(e.descripcion||'').replace(/'/g,"\\'")}',
+                      '${(e.comentario_asesor||'').replace(/'/g,"\\'").replace(/\n/g,' ')}')">
+              ${e.comentario_asesor ? '✏️ Editar' : '💬 Comentar'}
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // ── Modal ──────────────────────────────────────────────────
+  function abrirModal(id, idAlumno, alumno, desc, comentarioPrev) {
+    document.getElementById('c-id').value          = id;
+    document.getElementById('c-idAlumno').value    = idAlumno || '';
+    document.getElementById('c-alumno').textContent = alumno;
+    document.getElementById('c-desc').textContent   = desc || '';
+    document.getElementById('c-comentario').value   = comentarioPrev || '';
+    openModal('modal-comentar');
+  }
+
+  async function guardarComentario() {
+    const id        = parseInt(document.getElementById('c-id').value);
+    const idAlumno  = document.getElementById('c-idAlumno').value
+                        ? parseInt(document.getElementById('c-idAlumno').value) : null;
+    const comentario = document.getElementById('c-comentario').value.trim();
+    if (!comentario) { toast('El comentario no puede estar vacío.', 'warn'); return; }
+
+    const btn = document.getElementById('btn-guardar');
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    try {
+      await evidenciasApi.comentar(id, comentario, idAlumno);
+      toast('Retroalimentación guardada. El alumno fue notificado.');
+      closeModal('modal-comentar');
+      init();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = '💾 Guardar';
+    }
+  }
+
+  // ── Abrir archivo ─────────────────────────────────────────
+  async function abrirArchivo(btn) {
+    const ruta = btn.dataset.ruta;
+    if (!ruta) return;
+    const rutaLimpia = ruta.replace(/\\/g, '/').replace(/^\/+/, '');
+    const url   = 'http://localhost:3000/' + rutaLimpia;
+    const token = localStorage.getItem('sigerp_token');
+    const txt   = btn.textContent;
+    btn.disabled = true; btn.textContent = '...';
+    try {
+      const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+      if (!r.ok) throw new Error('Error ' + r.status);
+      const blob    = await r.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl; a.target = '_blank';
+      a.download = rutaLimpia.split('/').pop();
+      a.style.display = 'none';
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(blobUrl); }, 5000);
+    } catch(err) { alert('No se pudo abrir: ' + err.message); }
+    finally { btn.disabled = false; btn.textContent = txt; }
+  }
+
+  document.querySelectorAll('.modal-overlay').forEach(o =>
+    o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); })
+  );
+
+  init();
+</script>
+</body>
+</html>

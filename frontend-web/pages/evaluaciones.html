@@ -149,24 +149,19 @@
 
   async function init() {
     try {
-      // Cargar alumnos de mis proyectos
-      const perfil    = await usuariosApi.perfil();
-      const proyectos = await proyectosApi.listar();
-      const misProy   = proyectos.filter(p => p.asesor === perfil.nombre);
+      // Cargar alumnos aprobados asignados al asesor (igual que mis-alumnos.html)
+      const anteps    = await anteproyectosApi.misAsignados();
+      const aprobados = anteps.filter(a => a.estado === 'aprobado');
 
-      for (const p of misProy) {
-        const posts = await postulacionesApi.porProyecto(p.id_proyecto);
-        const acept = posts.filter(po => po.estado === 'aceptada');
-        acept.forEach(po => {
-          _misAlumnos.push({
-            id_alumno:   po.id_alumno,
-            alumno:      po.alumno,
-            matricula:   po.matricula,
-            idProyecto:  p.id_proyecto,
-            proyecto:    p.nombre,
-          });
+      aprobados.forEach(a => {
+        _misAlumnos.push({
+          id_alumno:  a.id_alumno,
+          alumno:     a.alumno,
+          matricula:  a.matricula,
+          idProyecto: a.id_proyecto || null,
+          proyecto:   a.proyecto    || '—',
         });
-      }
+      });
 
       // Poblar selector de alumno en el modal
       document.getElementById('ev-alumno-sel').innerHTML =

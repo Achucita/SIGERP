@@ -39,13 +39,12 @@
                 <th>Matrícula</th>
                 <th>Proyecto</th>
                 <th>Empresa</th>
-                <th>Reportes</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody id="tbody-alumnos">
               <tr class="loading-row">
-                <td colspan="6"><div class="spinner"></div></td>
+                <td colspan="5"><div class="spinner"></div></td>
               </tr>
             </tbody>
           </table>
@@ -81,7 +80,7 @@
   let _todos = [];
 
   async function cargarAlumnos() {
-    tablaLoading('tbody-alumnos', 6);
+    tablaLoading('tbody-alumnos', 5);
     try {
       // Un alumno es "mi alumno" cuando su anteproyecto fue aprobado por este asesor
       const anteps = await anteproyectosApi.misAsignados();
@@ -119,7 +118,7 @@
 
   function renderTabla(lista) {
     if (!lista.length) {
-      return tablaEmpty('tbody-alumnos', 'Sin alumnos asignados.', 6);
+      return tablaEmpty('tbody-alumnos', 'Sin alumnos asignados.', 5);
     }
     document.getElementById('tbody-alumnos').innerHTML = lista.map(a => `
       <tr>
@@ -138,15 +137,10 @@
         </td>
         <td class="text-sm text-muted">${a._empresa}</td>
         <td>
-          <span class="badge ${a._nPend > 0 ? 'badge-amber' : 'badge-gray'}">
-            ${a._nReportes} enviado(s)${a._nPend > 0 ? ` · ${a._nPend} pendiente(s)` : ''}
-          </span>
-        </td>
-        <td>
           <div class="td-actions">
-            <a href="reportes-alumno.html?proyecto=${a._idProyecto}"
+            <a href="evidencias-asesor.html?alumno=${a.id_alumno}&nombre=${encodeURIComponent(a.alumno)}"
                class="btn btn-sm btn-secondary">
-              Ver reportes
+              📎 Evidencias
             </a>
             <a href="evaluaciones.html?alumno=${a.id_alumno}&nombre=${encodeURIComponent(a.alumno)}&proyecto=${a._idProyecto}"
                class="btn btn-sm btn-primary">

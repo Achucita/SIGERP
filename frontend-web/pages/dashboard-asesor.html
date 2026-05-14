@@ -36,8 +36,8 @@
           <div class="stat-value" id="s-antep">—</div>
         </div>
         <div class="stat-card c-warn">
-          <div class="stat-label">Reportes por revisar</div>
-          <div class="stat-value" id="s-reportes">—</div>
+          <div class="stat-label">Evidencias sin retroalimentación</div>
+          <div class="stat-value" id="s-evidencias">—</div>
         </div>
         <div class="stat-card c-accent">
           <div class="stat-label">Evaluaciones emitidas</div>
@@ -69,13 +69,13 @@
           </div>
         </div>
 
-        <!-- Reportes pendientes -->
+        <!-- Evidencias recientes sin retroalimentación -->
         <div class="card">
           <div class="card-header">
-            <span class="card-title">Reportes pendientes</span>
-            <a href="reportes-alumno.html" class="btn btn-sm btn-secondary">Ver todos</a>
+            <span class="card-title">Evidencias sin retroalimentación</span>
+            <a href="evidencias-asesor.html" class="btn btn-sm btn-secondary">Ver todas</a>
           </div>
-          <div id="lista-reportes">
+          <div id="lista-evidencias">
             <div style="padding:20px;text-align:center"><div class="spinner"></div></div>
           </div>
         </div>
@@ -140,52 +140,40 @@
         `).join('');
       }
 
-      // Reportes pendientes — viene de proyectos donde el asesor tiene alumnos
-      // Usamos los proyectos de los anteproyectos aprobados
-      document.getElementById('s-reportes').textContent = '—';
-      const listaEl = document.getElementById('lista-reportes');
+      // Evidencias sin retroalimentación
+      document.getElementById('s-evidencias').textContent = '—';
+      const listaEl = document.getElementById('lista-evidencias');
 
       try {
-        // Intentar cargar reportes de proyectos del asesor
-        const proyectos = await proyectosApi.listar();
-        const misProy   = proyectos.filter(p =>
-          p.id_asesor === perfil.id_usuario || p.asesor === perfil.nombre
-        );
+        const todasEvid = await evidenciasApi.porAsesor();
+        const sinComent = todasEvid.filter(e => !e.comentario_asesor);
+        document.getElementById('s-evidencias').textContent = sinComent.length;
 
-        let pendRep = [];
-        for (const p of misProy.slice(0, 10)) {
-          const reps = await reportesApi.porProyecto(p.id_proyecto);
-          pendRep = pendRep.concat(
-            reps.filter(r => r.estado === 'enviado').map(r => ({ ...r, _proyecto: p.nombre }))
-          );
-        }
-
-        document.getElementById('s-reportes').textContent = pendRep.length;
-
-        if (!pendRep.length) {
+        if (!sinComent.length) {
           listaEl.innerHTML = `
             <div class="empty-state" style="padding:30px">
-              <div class="empty-state-icon">📄</div>
-              <p>Sin reportes pendientes</p>
+              <div class="empty-state-icon">📎</div>
+              <p>Sin evidencias pendientes de retroalimentación</p>
             </div>`;
         } else {
-          listaEl.innerHTML = pendRep.slice(0, 5).map(r => `
+          listaEl.innerHTML = sinComent.slice(0, 5).map(e => `
             <div class="activity-item">
               <div class="activity-dot" style="background:var(--accent)"></div>
               <div class="activity-text">
-                <strong>${r.alumno || 'Alumno'}</strong>
-                <div class="text-sm text-muted">${r._proyecto} · Reporte ${r.numero_reporte} · ${fmtFecha(r.fecha_envio)}</div>
+                <strong>${e.alumno || 'Alumno'}</strong>
+                <div class="text-sm text-muted">${e.descripcion || 'Sin descripción'} · ${fmtFecha(e.fecha_envio)}</div>
               </div>
-              <a href="reportes-alumno.html" class="btn btn-sm btn-primary">Revisar</a>
+              <a href="evidencias-asesor.html?alumno=${e.id_alumno}&nombre=${encodeURIComponent(e.alumno || '')}"
+                 class="btn btn-sm btn-primary">Comentar</a>
             </div>
           `).join('');
         }
       } catch (_) {
         listaEl.innerHTML = `
           <div class="empty-state" style="padding:30px">
-            <p class="text-muted">Sin reportes pendientes</p>
+            <p class="text-muted">Sin evidencias pendientes</p>
           </div>`;
-        document.getElementById('s-reportes').textContent = '0';
+        document.getElementById('s-evidencias').textContent = '0';
       }
 
       // Evaluaciones emitidas

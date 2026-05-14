@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SIGERP — Evaluaciones</title>
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+
+<div class="app-layout">
+  <nav class="sidebar" id="sidebar"></nav>
+
+  <div class="app-main">
+    <header class="topbar">
+      <div class="topbar-title">Evaluaciones</div>
+      <div class="topbar-actions">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="buscador" placeholder="Buscar alumno o asesor…" oninput="filtrar()" />
+        </div>
+      </div>
+    </header>
+
+    <main class="app-content">
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="card-title">Evaluaciones registradas</span>
+          <div class="tab-pills">
+            <button class="tab-pill active" onclick="setFiltro('', this)">Todas</button>
+            <button class="tab-pill" onclick="setFiltro('parcial', this)">Parciales</button>
+            <button class="tab-pill" onclick="setFiltro('final', this)">Finales</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Alumno</th>
+                <th>Asesor</th>
+                <th>Proyecto</th>
+                <th>Tipo</th>
+                <th>Calificación</th>
+                <th>Período evaluado</th>
+                <th>Comentarios</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-eval">
+              <tr class="loading-row">
+                <td colspan="8"><div class="spinner"></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="../js/auth.js"></script>
+<script src="../js/api/client.js"></script>
+<script src="../js/components/sidebar.js"></script>
+<script>
+  checkAuth(['admin']);
+  renderSidebar('admin-evaluaciones.html');
+
+  let _todos  = [];
+  let _filtroT = '';
+  let _filtroQ = '';
+
+  async function init() {
+    tablaLoading('tbody-eval', 8);
+    try {
+      _todos = await evaluacionesApi.todas();
+      document.getElementById('card-title').textContent =
+        `Evaluaciones registradas (${_todos.length})`;
+      renderTabla(aplicarFiltros());
+    } catch (err) {
+      tablaEmpty('tbody-eval', `Error: ${err.message}`, 8);
+      toast(err.message, 'error');
+    }
+  }
+
+  function setFiltro(tipo, btn) {
+    _filtroT = tipo;
+    document.querySelectorAll('.tab-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderTabla(aplicarFiltros());
+  }
+
+  function filtrar() {
+    _filtroQ = document.getElementById('buscador').value.toLowerCase();
+    renderTabla(aplicarFiltros());
+  }
+
+  function aplicarFiltros() {
+    return _todos.filter(e => {
+      const matchTipo = !_filtroT || e.tipo === _filtroT;
+      const matchQ    = !_filtroQ ||
+        (e.alumno   || '').toLowerCase().includes(_filtroQ) ||
+        (e.asesor   || '').toLowerCase().includes(_filtroQ) ||
+        (e.proyecto || '').toLowerCase().includes(_filtroQ);
+      return matchTipo && matchQ;
+    });
+  }
+
+  function renderTabla(lista) {
+    if (!lista.length) {
+      return tablaEmpty('tbody-eval', 'Sin evaluaciones en este filtro.', 8);
+    }
+    document.getElementById('tbody-eval').innerHTML = lista.map(e => `
+      <tr>
+        <td>
+          <div class="avatar-row">
+            <div class="avatar">${iniciales(e.alumno || '?')}</div>
+            <div>
+              <div class="td-name">${e.alumno || '—'}</div>
+              <div class="td-sub">${e.matricula || ''}</div>
+            </div>
+          </div>
+        </td>
+        <td class="text-sm">${e.asesor || '—'}</td>
+        <td class="text-sm text-muted" style="max-width:140px;word-break:break-word">
+          ${e.proyecto || '—'}
+        </td>
+        <td>${badgeEstado(e.tipo)}</td>
+        <td>
+          <span style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;
+            color:${e.calificacion >= 7 ? 'var(--accent2)' : 'var(--danger)'}">
+            ${e.calificacion}
+          </span>
+        </td>
+        <td class="text-sm text-muted">${e.periodo_evaluado || '—'}</td>
+        <td style="max-width:220px">
+          <div class="text-sm" style="color:var(--muted);line-height:1.5">
+            "${(e.comentarios || '—').slice(0, 100)}${e.comentarios?.length > 100 ? '…' : ''}"
+          </div>
+        </td>
+        <td class="text-sm text-muted">${fmtFecha(e.fecha_evaluacion)}</td>
+      </tr>
+    `).join('');
+  }
+
+  init();
+</script>
+</body>
+</html>

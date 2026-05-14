@@ -83,6 +83,15 @@ const anteproyectosApi = {
   },
 };
 
+const evidenciasApi = {
+  // Alumno
+  subir:     (formData)                    => api.upload('/evidencias', formData),
+  mis:       ()                            => api.get('/evidencias/mis'),
+  // Asesor
+  porAsesor: ()                            => api.get('/evidencias/asesor'),
+  comentar:  (id, comentario, idAlumno)    => api.put(`/evidencias/${id}/comentar`, { comentario, idAlumno }),
+};
+
 const reportesApi = {
   subir:      (formData)   => api.upload('/reportes', formData),
   mis:        ()           => api.get('/reportes/mis'),
@@ -94,6 +103,7 @@ const reportesApi = {
 
 const evaluacionesApi = {
   crear:     (datos) => api.post('/evaluaciones', datos),
+  todas:     ()      => api.get('/evaluaciones'),
   mis:       ()      => api.get('/evaluaciones/mis'),
   porAlumno: (id)    => api.get(`/evaluaciones/alumno/${id}`),
 };

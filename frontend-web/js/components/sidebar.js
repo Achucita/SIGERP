@@ -15,8 +15,9 @@ function renderSidebar(paginaActiva = '') {
       { href: 'perfil.html',          icon: '👤', label: 'Mi perfil' },
     ]},
     { seccion: 'Gestión', items: [
-      { href: 'admin-reportes.html',   icon: '📊', label: 'Reportes' },
-      { href: 'admin-expedientes.html', icon: '🗂️', label: 'Expedientes' },
+      { href: 'admin-reportes.html',     icon: '📊', label: 'Reportes' },
+      { href: 'admin-expedientes.html',  icon: '🗂️', label: 'Expedientes' },
+      { href: 'admin-evaluaciones.html', icon: '⭐', label: 'Evaluaciones' },
     ]},
     { seccion: 'Sistema', items: [
       { href: 'reportes-sistema.html', icon: '📈', label: 'Reportes del sistema' },
@@ -28,7 +29,7 @@ function renderSidebar(paginaActiva = '') {
       { href: 'dashboard-asesor.html',      icon: '⊞', label: 'Dashboard' },
       { href: 'anteproyectos-asesor.html',  icon: '📝', label: 'Anteproyectos' },
       { href: 'mis-alumnos.html',           icon: '👥', label: 'Mis alumnos' },
-      { href: 'reportes-alumno.html',       icon: '📄', label: 'Reportes' },
+      { href: 'evidencias-asesor.html',     icon: '📎', label: 'Evidencias' },
       { href: 'evaluaciones.html',          icon: '⭐', label: 'Evaluaciones' },
       { href: 'perfil.html',               icon: '👤', label: 'Mi perfil' },
     ]},

@@ -5,15 +5,18 @@ const { ok, created, badRequest, serverError } = require('../utils/response');
 async function crear(req, res) {
   try {
     const { idAlumno, idProyecto, tipo, calificacion, comentarios, periodoEvaluado } = req.body;
-    if (!idAlumno || !idProyecto || !tipo || calificacion === undefined)
-      return badRequest(res, 'idAlumno, idProyecto, tipo y calificacion son requeridos.');
+    if (!idAlumno || !tipo || calificacion === undefined)
+      return badRequest(res, 'idAlumno, tipo y calificacion son requeridos.');
+
+    // idProyecto es opcional (alumno puede no tener proyecto asignado aún)
+    const idProy = idProyecto && idProyecto !== 0 ? idProyecto : null;
  
     const cal = parseFloat(calificacion);
     if (isNaN(cal) || cal < 0 || cal > 10)
       return badRequest(res, 'calificacion debe ser un número entre 0 y 10.');
  
     const id = await EvalModel.crear({
-      idAlumno, idAsesor: req.usuario.id, idProyecto,
+      idAlumno, idAsesor: req.usuario.id, idProyecto: idProy,
       tipo, calificacion: cal, comentarios, periodoEvaluado,
     });
  
@@ -29,6 +32,14 @@ async function crear(req, res) {
   }
 }
  
+async function listar(req, res) {
+  try {
+    return ok(res, await EvalModel.listar());
+  } catch (err) {
+    return serverError(res, err);
+  }
+}
+
 async function misEvaluaciones(req, res) {
   try {
     const lista = await EvalModel.porAlumno(req.usuario.id);
@@ -47,5 +58,4 @@ async function porAlumno(req, res) {
   }
 }
  
-module.exports = { crear, misEvaluaciones, porAlumno };
- 
+module.exports = { crear, listar, misEvaluaciones, porAlumno };

@@ -36,10 +36,10 @@ router.post('/',        auth, roles('alumno'), uploadSingle('archivo'), ctrl.sub
 router.get('/mis',      auth, roles('alumno'), ctrl.misReportes);
 router.get('/periodos', auth,                  ctrl.periodos);
 
-// Admin
-router.get('/',         auth, roles('admin', 'asesor'), ctrl.listar);
+// Admin (solo admin — los reportes NO se comparten con el asesor)
+router.get('/',         auth, roles('admin'), ctrl.listar);
 router.put('/periodos', auth, roles('admin'), ctrl.actualizarPeriodo);
-router.put('/:id',      auth, roles('admin', 'asesor'), ctrl.revisar);
+router.put('/:id',      auth, roles('admin'), ctrl.revisar);
 
 
 module.exports = router;
