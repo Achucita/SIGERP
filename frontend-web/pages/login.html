@@ -2,6 +2,8 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="../favicon.jpg">
+  <link rel="shortcut icon" href="../favicon.jpg">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SIGERP — Iniciar sesión</title>
   <link rel="stylesheet" href="../css/main.css">
@@ -98,6 +100,45 @@
       font-size: 12px;
       color: var(--muted);
     }
+    .login-empresa {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 20px;
+      background: #f0f7ff;
+      border: 1px solid #c7dff7;
+      border-radius: 10px;
+      padding: 14px;
+    }
+    .login-empresa-icon {
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .login-empresa-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 2px;
+    }
+    .login-empresa-sub {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .login-empresa-btn {
+      flex-shrink: 0;
+      background: var(--navy);
+      color: white;
+      text-decoration: none;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: 'Syne', sans-serif;
+      padding: 7px 12px;
+      border-radius: 7px;
+      white-space: nowrap;
+      transition: opacity .18s;
+    }
+    .login-empresa-btn:hover { opacity: .82; }
   </style>
 </head>
 <body>
@@ -127,6 +168,15 @@
       Entrar al sistema
     </button>
   </form>
+
+  <div class="login-empresa">
+    <div class="login-empresa-icon">🏢</div>
+    <div>
+      <div class="login-empresa-title">¿Eres una empresa?</div>
+      <div class="login-empresa-sub">Las empresas no tienen acceso al sistema — regístra tu organización para colaborar con el Instituto.</div>
+    </div>
+    <a href="registro-empresa.html" class="login-empresa-btn">Registrarse →</a>
+  </div>
 
   <p class="login-footer">
     ¿Problemas de acceso? Contacta al administrador.
