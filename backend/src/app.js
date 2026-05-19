@@ -3,25 +3,35 @@ const express = require('express');
 const cors    = require('cors');
 const path    = require('path');
 require('./config/env');
-const { getPool, sql } = require('./config/db');
+const { getPool } = require('./config/db');
 
 const app = express();
 
-app.use(cors());
+// ── CORS — en producción ajusta el origin a tu dominio ──────
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || '*',
+  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization'],
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ── Archivos subidos — protegidos por JWT ────────────────────
-// El token llega como header Authorization: Bearer <token>
-// URL: GET http://localhost:3000/uploads/anteproyectos/archivo.pdf
 app.use('/uploads',
   require('./middlewares/auth'),
   express.static(path.join(__dirname, '..', 'uploads'))
 );
 
-app.get('/health', (req, res) =>
-  res.json({ ok: true, message: 'SIGERP API funcionando.', env: process.env.NODE_ENV })
-);
+app.get('/health', async (req, res) => {
+  try {
+    const pool = await getPool();
+    await pool.query('SELECT 1');
+    res.json({ ok: true, message: 'SIGERP API funcionando.', env: process.env.NODE_ENV });
+  } catch (err) {
+    res.status(503).json({ ok: false, message: 'DB no disponible: ' + err.message });
+  }
+});
 
 // ── Rutas ────────────────────────────────────────────────────
 app.use('/api/usuarios',       require('./routes/usuario.routes'));
@@ -48,10 +58,10 @@ const PORT = process.env.PORT || 3000;
 
 async function startServer() {
   try {
-    console.log('Verificando conexion a SQL Server...');
-    const pool   = await getPool();
-    const result = await pool.request().query('SELECT DB_NAME() as db_name');
-    console.log('Conexion establecida —', result.recordset[0].db_name);
+    console.log('Verificando conexion a MySQL...');
+    const pool = await getPool();
+    const [rows] = await pool.query('SELECT DATABASE() AS db_name');
+    console.log('Conexion establecida —', rows[0].db_name);
     app.listen(PORT, () => {
       console.log(`SIGERP API corriendo en http://localhost:${PORT}`);
       console.log(`   Entorno: ${process.env.NODE_ENV}`);
@@ -66,7 +76,11 @@ startServer();
 
 process.on('SIGINT', async () => {
   console.log('\nCerrando...');
-  await sql.close().catch(() => {});
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('\nSIGTERM recibido. Cerrando...');
   process.exit(0);
 });
 

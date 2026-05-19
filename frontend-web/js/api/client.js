@@ -1,5 +1,11 @@
 // frontend-web/js/api/client.js
-const API_BASE = 'http://localhost:3000/api';
+// ── Detecta automáticamente si el frontend está en el mismo servidor ──
+// En producción, cambia esta línea a tu dominio real:
+//   const API_BASE = 'https://sigerp.itl.edu.mx/api';
+// O deja el valor dinámico de abajo para que funcione con cualquier IP.
+const API_BASE = window.location.hostname === 'localhost'
+  ? 'http://localhost:3000/api'
+  : 'http://13.59.60/api';
 
 async function apiFetch(endpoint, options = {}) {
   const token = localStorage.getItem('sigerp_token');
@@ -46,20 +52,15 @@ const postulacionesApi = {
 };
 
 const anteproyectosApi = {
-  // Admin
   listar:        (estado)         => api.get(`/anteproyectos${estado ? `?estado=${estado}` : ''}`),
   pendientes:    ()               => api.get('/anteproyectos/pendientes'),
   ver:           (id)             => api.get(`/anteproyectos/${id}`),
   asignarAsesor: (id, idAsesor)   => api.put(`/anteproyectos/${id}/asignar-asesor`, { idAsesor }),
-  // Asesor
   misAsignados:  ()               => api.get('/anteproyectos/mis-asignados'),
   revisar:       (id, datos)      => api.put(`/anteproyectos/${id}/revisar-asesor`, datos),
-  // Alumno
   subir:         (formData)       => api.upload('/anteproyectos', formData),
-  // Utilidad para construir la URL del PDF
   urlArchivo:    (ruta)           => `${API_BASE.replace('/api', '')}/${ruta.replace(/\\/g, '/')}`,
 
-  // Abre un PDF en nueva pestaña enviando el JWT (window.open no manda headers)
   async abrirPDF(ruta) {
     const rutaLimpia = (ruta || '').replace(/\\/g, '/').replace(/^\/+/, '');
     const url   = API_BASE.replace('/api', '') + '/' + rutaLimpia;
@@ -84,10 +85,8 @@ const anteproyectosApi = {
 };
 
 const evidenciasApi = {
-  // Alumno
   subir:     (formData)                    => api.upload('/evidencias', formData),
   mis:       ()                            => api.get('/evidencias/mis'),
-  // Asesor
   porAsesor: ()                            => api.get('/evidencias/asesor'),
   comentar:  (id, comentario, idAlumno)    => api.put(`/evidencias/${id}/comentar`, { comentario, idAlumno }),
 };
@@ -109,8 +108,8 @@ const evaluacionesApi = {
 };
 
 const expedienteApi = {
-  listarAlumnos:      ()   => api.get('/expedientes'),
-  expediente:         (id) => api.get(`/expedientes/${id}`),
+  listarAlumnos: () => api.get('/expedientes'),
+  expediente:    (id) => api.get(`/expedientes/${id}`),
 };
 
 const notificacionesApi = {
