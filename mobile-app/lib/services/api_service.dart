@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // ── Cambiar esta URL por la IP real del servidor donde corre el backend ──
-  static const String baseUrl = 'http://10.0.2.2:3000/api';
+  static const String baseUrl = 'http://13.59.60.97/api';
   // En dispositivo físico usa la IP local: ej. 'http://192.168.1.X:3000/api'
 
   // ── Token management ─────────────────────────────────────────────────────
