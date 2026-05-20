@@ -42,7 +42,9 @@ class _ProyectosScreenState extends State<ProyectosScreen> {
         _proyectos = res['data'] as List? ?? [];
         _filtrar();
       }
-    } catch (_) {}
+    } catch (e) {
+      print('ERROR PROYECTOS:  $e');
+    }
     if (mounted) setState(() => _loading = false);
   }
 

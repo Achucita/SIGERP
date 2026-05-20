@@ -109,6 +109,9 @@ class ApiService {
       Uri.parse('$baseUrl/usuarios/perfil'),
       headers: await _headers(),
     );
+  print('GET PROYECTOS STATUS: ${res.statusCode})');
+  print('GET PROYECTOS BODY: ${res.body})');
+
     return _parse(res);
   }
 
